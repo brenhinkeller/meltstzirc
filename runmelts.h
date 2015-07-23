@@ -137,7 +137,7 @@ void runmeltsNoCO2(char prefix[], double sc[], char version[], char mode[], char
 			\nInitial Composition: K2O %.4f\
 			\nInitial Composition: P2O5 %.4f\
 			\nInitial Composition: H2O %.4f\n",
-			sc[0],sc[1],sc[2],sc[3],sc[4],sc[5],sc[6],sc[7],sc[8],sc[9],sc[10],sc[11],sc[12],sc[13],sc[14]);
+			sc[0],sc[1],sc[2],sc[3],sc[4],sc[5],sc[6],sc[7],sc[8],sc[9],sc[10],sc[11],sc[12],sc[13],sc[15]);
 	fprintf(fp,	"Initial Temperature: %.2f\
 			\nInitial Pressure: %.2f\
 			\nlog fo2 Path: %s\n",

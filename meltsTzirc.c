@@ -17,10 +17,9 @@
 
 double meltsM(double * const array){
 	// Format: SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5 H2O
-	for (int i=0; i<15; i++){
-		if (i==0 || i==2 || i==5 || i==7 || i==10 || i==11 || i==12 || i==14)  printf("%.2g, ", array[i]);
+	for (int i=0; i<16; i++){
+		if (i==0 || i==2 || i==5 || i==7 || i==10 || i==11 || i==12)  printf("%.1f, ", array[i]);
 	}
-	printf("\n");
 	double Si=array[0]/(28.0844+15.9994*2);
 	double Ti=array[1]/(47.867+15.9994*2);
 	double Al=array[2]/(26.9815+15.9994*1.5);
@@ -35,7 +34,9 @@ double meltsM(double * const array){
 	double K=array[12]/(39.0983+15.9994/2);
 	double P=array[13]/(30.9738+15.9994*2.5);
 	double TotalMoles = Si+Ti+Al+Fe+Cr+Mn+Mg+Ni+Co+Ca+Na+K+P;
-	return (Na + K + 2*Ca) / (Al * Si) * TotalMoles;
+	double M = (Na + K + 2*Ca) / (Al * Si) * TotalMoles;
+	printf("\t\t\t\t%.2g",M);
+	return M;
 }
 
 
@@ -73,7 +74,7 @@ int main(int argc, char **argv){
 //	int n=world_rank-world_size;
 	// Location of scratch directory (ideally local scratch for each node)
 	// This location may vary on your system - contact your sysadmin if unsure
-	const char scratchdir[]="/scratch/";
+	const char scratchdir[]="/scratch2/";
 
 	// Simulation parameters
 	//Initial Pressure
@@ -126,12 +127,12 @@ int main(int argc, char **argv){
 		printf("\nSimulation #%u\n",i);
 		printf("SiO2, Al203, FeO, MgO, CaO, Na2O, K2O, H2O\n");
 		for (j=0;j<datacolumns;j++){
-			if (j==0 || j==2 || j==5 || j==7 || j==10 || j==11 || j==12 || j==14) printf("%g, ",data[i][j]);
+			if (j==0 || j==2 || j==5 || j==7 || j==10 || j==11 || j==12 || j==15) printf("%g, ",data[i][j]);
 		}
 		printf("\n");
 
 		//Run MELTS
-		runmelts(prefix,data[i],"pMELTS","isobaric","FMQ",fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",1700,Pi,deltaT,0,0.005);
+		runmeltsNoCO2(prefix,data[i],"pMELTS","isobaric","FMQ",fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",1700,Pi,deltaT,0,0.005);
 
 		// If simulation failed, clean up scratch directory and move on to next simulation
 		sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
@@ -178,22 +179,35 @@ int main(int argc, char **argv){
 		
 		// Calculate saturation temperature and minimum necessary zirconium content
 		
-		
+		Tsat=0;	
 		for(row=1; row<(meltsrows[0]-1); row++){
-			if (melts[0][row-1][SiO2]>melts[0][row][SiO2]){
-				break; // Stop when we get to maximum SiO2
+			//Calculate melt M and [Zr]
+			M = meltsM(&melts[0][row][SiO2]);
+			Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Assuming bulk Kd=0.1
+			printf("\t%.0f\t%.0f\n", tzirc(M, Zrf), melts[0][row][T]);
+
+			// Check if we've cooled below the saturation temperature yet
+		       	if (Tsat==0 && tzirc(M, Zrf) > melts[0][row][T]){
+				Tsat = tzirc(M, Zrf);
+				printf("Saturation reached\n");
+			}
+ 			// Stop when we get to maximum SiO2
+			if (melts[0][row-1][SiO2]>(melts[0][row][SiO2])+0.01){
+				break;
 			}
 		}
 	
-//		M = mvalue(melts[0][meltsrows[0]-1][cao], melts[0][meltsrows[0]-1][na2o], melts[0][meltsrows[0]-1][k2o], melts[0][meltsrows[0]-1][al2o3], melts[0][meltsrows[0]-1][sio2]);
 		M = meltsM(&melts[0][row][SiO2]);
 		Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Final zirconium content, assuming bulk kd=0.1
+		printf("\t%.0f\t%.0f\n", tzirc(M, Zrf), melts[0][row][T]);
+
 		Tf = melts[0][row][T];
 		Zrsat = tzircZr(M, Tf);
-		Tsat = tzirc(M, Zrf);
-		
+		if (Tsat==0){
+			Tsat = tzirc(M, Zrf);
+		}
 
-		printf("Final melt percentage: %g, Water Content: %g, M value: %g\n", melts[0][meltsrows[0]-1][mass], melts[0][meltsrows[0]-1][H2O], M);
+		printf("Final melt percentage: %g, Water Content: %g, M value: %g\n", melts[0][row][mass], melts[0][row][H2O], M);
 		printf("Final Zr: %g, Zr at saturation: %g, Saturation temperature: %g, Final T: %g\n", Zrf, Zrsat, Tsat, Tf);
 	}
 
