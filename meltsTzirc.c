@@ -4,7 +4,6 @@
  *   Calculates ... using 
  *   ..
  * AUTHOR: C. Brenhin Keller
- * LAST REVISED: 10/08/13
  ******************************************************************************/
 
 
@@ -17,13 +16,6 @@
 #include "runmelts.h"
 
 
-// 'SiO2';'TiO2';'Al2O3';'Fe2O3';'Cr2O3';'FeO';  'MnO';  'MgO';   'NiO';  'CoO';  'CaO';  'Na2O'; 'K2O'; 'P2O5';
-// SiO2, TiO2, Al2O3, Cr2O3, FeOT, MnO, MgO, Ni, Co, CaO, Na2O, K2O, P2O5
-
-
-// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, H2O;
-	
-
 int main(int argc, char **argv){
 
 	//Check input arguments
@@ -32,15 +24,10 @@ int main(int argc, char **argv){
 		exit(1);
 	}
 
-	uint32_t datarows, datacolumns;
-//	uint32_t i, j;
-
-	char prefix[200], cmd_string[500];
 	FILE *fp;
+	char prefix[200], cmd_string[500];
+	uint32_t datarows, datacolumns;
 	uint32_t i, j, k;
-
-
-
 
 
 	// Variables that control size and location of the simulation
@@ -60,7 +47,8 @@ int main(int argc, char **argv){
 	const int maxMinerals=40, maxSteps=1700/abs(deltaT), maxColumns=50;
 
 
-	// import 2-d source data array as a flat double array
+	// Import 2-d source data array as a flat double array. Format:
+	// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, H2O, Zr;
 	double** const restrict data = csvparse(argv[1],',', &datarows, &datacolumns);
 
 	// Malloc space for the imported melts array
@@ -79,9 +67,7 @@ int main(int argc, char **argv){
 	int minerals;
 
 	//  Variables for finding saturation temperature
-	int SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
-
-
+	int P, T, M, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
 
 
 	for (i=0;i<datarows;i++){
@@ -109,7 +95,6 @@ int main(int argc, char **argv){
 			continue;
 		}
 
-
 		// Import results, if they exist
 		importmelts(prefix, melts, rawMatrix, meltsrows, meltscolumns, names, elements, &minerals);
 		if (minerals<1 | strcmp(names[0],"liquid_0")!=0) {
@@ -121,27 +106,31 @@ int main(int argc, char **argv){
 
 
 		// Find the columns containing useful elements
-		for(i=0; i<columns[0]; i++){
-			if (strcmp(elements[0][i], "SiO2")==0) SiO2=i;
-			else if (strcmp(elements[0][i], "TiO2")==0) TiO2=i;
-			else if (strcmp(elements[0][i], "Al2O3")==0) Al2O3=i;
-			else if (strcmp(elements[0][i], "Fe2O3")==0) Fe2O3=i;
-			else if (strcmp(elements[0][i], "Cr2O3")==0) Cr2O3=i;
-			else if (strcmp(elements[0][i], "FeO")==0) FeO=i;
-			else if (strcmp(elements[0][i], "MnO")==0) MnO=i;
-			else if (strcmp(elements[0][i], "MgO")==0) MgO=i;
-			else if (strcmp(elements[0][i], "NiO")==0) NiO=i;
-			else if (strcmp(elements[0][i], "CoO")==0) CoO=i;
-			else if (strcmp(elements[0][i], "CaO")==0) CaO=i;
-			else if (strcmp(elements[0][i], "Na2O")==0) Na2O=i;
-			else if (strcmp(elements[0][i], "K2O")==0) K2O=i;
-			else if (strcmp(elements[0][i], "P2O5")==0) P2O5=i;
-			else if (strcmp(elements[0][i], "CO2")==0) CO2=i;
-			else if (strcmp(elements[0][i], "H2O")==0) H2O=i;
+		for(int col=0; col<meltscolumns[0]; col++){
+			if (strcmp(elements[0][col], "Pressure")==0) P=col;
+			else if (strcmp(elements[0][col], "Temperature")==0) T=col;
+			else if (strcmp(elements[0][col], "mass")==0) M=col;
+			else if (strcmp(elements[0][col], "SiO2")==0) SiO2=col;
+			else if (strcmp(elements[0][col], "TiO2")==0) TiO2=col;
+			else if (strcmp(elements[0][col], "Al2O3")==0) Al2O3=col;
+			else if (strcmp(elements[0][col], "Fe2O3")==0) Fe2O3=col;
+			else if (strcmp(elements[0][col], "Cr2O3")==0) Cr2O3=col;
+			else if (strcmp(elements[0][col], "FeO")==0) FeO=col;
+			else if (strcmp(elements[0][col], "MnO")==0) MnO=col;
+			else if (strcmp(elements[0][col], "MgO")==0) MgO=col;
+			else if (strcmp(elements[0][col], "NiO")==0) NiO=col;
+			else if (strcmp(elements[0][col], "CoO")==0) CoO=col;
+			else if (strcmp(elements[0][col], "CaO")==0) CaO=col;
+			else if (strcmp(elements[0][col], "Na2O")==0) Na2O=col;
+			else if (strcmp(elements[0][col], "K2O")==0) K2O=col;
+			else if (strcmp(elements[0][col], "P2O5")==0) P2O5=col;
+			else if (strcmp(elements[0][col], "CO2")==0) CO2=col;
+			else if (strcmp(elements[0][col], "H2O")==0) H2O=col;
 		}
-
-
-
+		
+		// Calculate saturation temperature and minimum necessary zirconium content
+		printf("Final melt percentage: %g, Temperature: %g, Water Content: %g\n", melts[0][meltsrows[0]-1][M], melts[0][meltsrows[0]-1][T], melts[0][meltsrows[0]-1][H2O]);
+		
 	}
 
 
