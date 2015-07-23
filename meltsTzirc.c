@@ -15,6 +15,42 @@
 #include "arrays.h"
 #include "runmelts.h"
 
+double meltsM(double * const array){
+	// Format: SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5 H2O
+	for (int i=0; i<15; i++){
+		if (i==0 || i==2 || i==5 || i==7 || i==10 || i==11 || i==12 || i==14)  printf("%.2g, ", array[i]);
+	}
+	printf("\n");
+	double Si=array[0]/(28.0844+15.9994*2);
+	double Ti=array[1]/(47.867+15.9994*2);
+	double Al=array[2]/(26.9815+15.9994*1.5);
+	double Fe=array[3]/(55.845+15.9994*1.5) + array[5]/(55.845+15.9994);
+	double Cr=array[4]/(51.9961+15.9994*1.5);
+	double Mn=array[6]/(54.9380+15.9994);
+	double Mg=array[7]/(24.3050+15.9994);
+	double Ni=array[8]/(58.6934+15.9994);
+	double Co=array[9]/(58.9332+15.9994);
+	double Ca=array[10]/(40.078+15.9994);
+	double Na=array[11]/(22.9898+15.9994/2);
+	double K=array[12]/(39.0983+15.9994/2);
+	double P=array[13]/(30.9738+15.9994*2.5);
+	double TotalMoles = Si+Ti+Al+Fe+Cr+Mn+Mg+Ni+Co+Ca+Na+K+P;
+	return (Na + K + 2*Ca) / (Al * Si) * TotalMoles;
+}
+
+
+double tzirc(const double M, const double Zr){
+	double Tsat = 10108.0 / (log(496000.0/Zr) + 1.16*(M-1) + 1.48) - 273.15; // Temperature in Celcius
+	if (Zr<=0){
+		Tsat = NAN;
+	}
+	return Tsat;
+}
+
+double tzircZr(const double M, const double T){
+	double Zrsat = 496000.0 / exp(10108.0/(T+273.15) - 1.16*(M-1) - 1.48);
+	return Zrsat;
+}
 
 int main(int argc, char **argv){
 
@@ -40,7 +76,10 @@ int main(int argc, char **argv){
 	const char scratchdir[]="/scratch/";
 
 	// Simulation parameters
-	double Pi=9001, fo2Delta=0;
+	//Initial Pressure
+	double Pi=600;
+	// fO2 offset from FMQ
+	double fo2Delta=1;
 	//Temperature step size in each simulation
 	const int deltaT=-10;
 	/***********************************************************/	
@@ -67,24 +106,32 @@ int main(int argc, char **argv){
 	int minerals;
 
 	//  Variables for finding saturation temperature
-	int P, T, M, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
-
+	int row, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
+	double M, Tf, Tsat, Zrf, Zrsat;
 
 	for (i=0;i<datarows;i++){
-		//Print current simulation
-		printf("Simulation #%u\n",i);
-		for (j=0;j<datacolumns;j++){
-			printf("%g,",data[i][j]);
-		}
-		printf("\n");
+
 
 		//Configure working directory
 		sprintf(prefix,"%sout%u/", scratchdir, i);
 		sprintf(cmd_string,"mkdir -p %s", prefix);
 		system(cmd_string);
 
-		//Run MELTS to equilibrate at 5% melt
-		runmeltsNoCO2(prefix,data[i],"pMELTS","isobaric","FMQ",fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",1700,Pi,deltaT,0,0.005);
+		//Set water
+//		data[i][15]=1.0;
+		//Set CO2
+//		data[i][14]=0.1;
+
+		//Print current simulation
+		printf("\nSimulation #%u\n",i);
+		printf("SiO2, Al203, FeO, MgO, CaO, Na2O, K2O, H2O\n");
+		for (j=0;j<datacolumns;j++){
+			if (j==0 || j==2 || j==5 || j==7 || j==10 || j==11 || j==12 || j==14) printf("%g, ",data[i][j]);
+		}
+		printf("\n");
+
+		//Run MELTS
+		runmelts(prefix,data[i],"pMELTS","isobaric","FMQ",fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",1700,Pi,deltaT,0,0.005);
 
 		// If simulation failed, clean up scratch directory and move on to next simulation
 		sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
@@ -95,7 +142,8 @@ int main(int argc, char **argv){
 			continue;
 		}
 
-		// Import results, if they exist
+		// Import results, if they exist. Format:
+		// Pressure Temperature mass S H V Cp viscosity SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5 H2O
 		importmelts(prefix, melts, rawMatrix, meltsrows, meltscolumns, names, elements, &minerals);
 		if (minerals<1 | strcmp(names[0],"liquid_0")!=0) {
 			fprintf(stderr, "%u: MELTS equilibration failed to calculate liquid composition.\n", i);
@@ -109,7 +157,7 @@ int main(int argc, char **argv){
 		for(int col=0; col<meltscolumns[0]; col++){
 			if (strcmp(elements[0][col], "Pressure")==0) P=col;
 			else if (strcmp(elements[0][col], "Temperature")==0) T=col;
-			else if (strcmp(elements[0][col], "mass")==0) M=col;
+			else if (strcmp(elements[0][col], "mass")==0) mass=col;
 			else if (strcmp(elements[0][col], "SiO2")==0) SiO2=col;
 			else if (strcmp(elements[0][col], "TiO2")==0) TiO2=col;
 			else if (strcmp(elements[0][col], "Al2O3")==0) Al2O3=col;
@@ -129,8 +177,24 @@ int main(int argc, char **argv){
 		}
 		
 		// Calculate saturation temperature and minimum necessary zirconium content
-		printf("Final melt percentage: %g, Temperature: %g, Water Content: %g\n", melts[0][meltsrows[0]-1][M], melts[0][meltsrows[0]-1][T], melts[0][meltsrows[0]-1][H2O]);
 		
+		
+		for(row=1; row<(meltsrows[0]-1); row++){
+			if (melts[0][row-1][SiO2]>melts[0][row][SiO2]){
+				break; // Stop when we get to maximum SiO2
+			}
+		}
+	
+//		M = mvalue(melts[0][meltsrows[0]-1][cao], melts[0][meltsrows[0]-1][na2o], melts[0][meltsrows[0]-1][k2o], melts[0][meltsrows[0]-1][al2o3], melts[0][meltsrows[0]-1][sio2]);
+		M = meltsM(&melts[0][row][SiO2]);
+		Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Final zirconium content, assuming bulk kd=0.1
+		Tf = melts[0][row][T];
+		Zrsat = tzircZr(M, Tf);
+		Tsat = tzirc(M, Zrf);
+		
+
+		printf("Final melt percentage: %g, Water Content: %g, M value: %g\n", melts[0][meltsrows[0]-1][mass], melts[0][meltsrows[0]-1][H2O], M);
+		printf("Final Zr: %g, Zr at saturation: %g, Saturation temperature: %g, Final T: %g\n", Zrf, Zrsat, Tsat, Tf);
 	}
 
 

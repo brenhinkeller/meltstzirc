@@ -1,7 +1,7 @@
 
 in=ign;
 
-elems={'SiO2';'TiO2';'Al2O3';'Fe2O3';'Cr2O3';'FeO';  'MnO';  'MgO';   'NiO';  'CoO';  'CaO';  'Na2O'; 'K2O'; 'P2O5'; 'H2O_Total'; 'Zr'};
+elems={'SiO2';'TiO2';'Al2O3';'Fe2O3';'Cr2O3';'FeO';  'MnO';  'MgO';   'NiO';  'CoO';  'CaO';  'Na2O'; 'K2O'; 'P2O5'; 'CO2'; 'H2O_Total'; 'Zr'};
 
 % int SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
 
@@ -26,6 +26,9 @@ in.Fe2O3=zeros(size(in.Fe2O3));
 
 % Set undefined H2O to the average
 in.H2O_Total(isnan(in.H2O_Total))=nanmean(in.H2O_Total);
+
+% Set undefined H2O to the average
+in.CO2(isnan(in.CO2))=nanmean(in.CO2);
 
 data=zeros(length(in.SiO2),length(elems));
 for i=1:length(elems)

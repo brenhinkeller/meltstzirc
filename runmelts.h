@@ -4,7 +4,7 @@
 /* Run melts */
 void runmelts(char prefix[], double sc[], char version[], char mode[], char fo2Path[], double fo2Delta, char batchString[], char saveAll[], char fractionateSolids[], double Ti, double Pi, double dT, double dP, double massin){
 
-	char fractionateWater[2] = "", // Fractionate all water? ("!" for no, "" for yes)
+	char fractionateWater[2] = "!", // Fractionate all water? ("!" for no, "" for yes)
 	     celciusOutput[2] = "", // Ouptut temperatures in celcius? ("!" for no, "" for yes)
 	     ptpath[2]="!"; //Follow a PTpath file
 	
@@ -98,7 +98,7 @@ void runmelts(char prefix[], double sc[], char version[], char mode[], char fo2P
 /* Run melts */
 void runmeltsNoCO2(char prefix[], double sc[], char version[], char mode[], char fo2Path[], double fo2Delta, char batchString[], char saveAll[], char fractionateSolids[], double Ti, double Pi, double dT, double dP, double massin){
 
-	char fractionateWater[2] = "", // Fractionate all water? ("!" for no, "" for yes)
+	char fractionateWater[2] = "!", // Fractionate all water? ("!" for no, "" for yes)
 	     celciusOutput[2] = "", // Ouptut temperatures in celcius? ("!" for no, "" for yes)
 	     ptpath[2]="!"; //Follow a PTpath file
 	
@@ -107,7 +107,7 @@ void runmeltsNoCO2(char prefix[], double sc[], char version[], char mode[], char
 	double  Pmax = 90000, // Default global simulation constraints
 		Pmin = 1,
 		Tmax = 3000, 
-		Tmin = 600;
+		Tmin = 500;
 
 	FILE *fp;
 	char path_string[100];
@@ -179,7 +179,8 @@ void runmeltsNoCO2(char prefix[], double sc[], char version[], char mode[], char
 	// Replace '/scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl' with the correct path to the alphamelts perl script on your system
 	/***********************************************************/
 	char cmd_string[200];
-	sprintf(cmd_string,"cd %s; /scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl -f melts_env -b batch > /dev/null", prefix); // Discard verbose output
+	sprintf(cmd_string,"cd %s; run_alphamelts.command -f melts_env -b batch > /dev/null", prefix); // Discard verbose output
+//	sprintf(cmd_string,"cd %s; /scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl -f melts_env -b batch > /dev/null", prefix); // Discard verbose output
 //	sprintf(cmd_string,"cd %s; /scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl -f melts_env -b batch", prefix); // Print all melts command line output for debugging
 	system(cmd_string);
 	/***********************************************************/	
