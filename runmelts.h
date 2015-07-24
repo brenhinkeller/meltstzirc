@@ -187,6 +187,92 @@ void runmeltsNoCO2(char prefix[], double sc[], char version[], char mode[], char
 
 }
 
+/* Run melts */
+void runmeltsmajors(char prefix[], double sc[], char version[], char mode[], char fo2Path[], double fo2Delta, char batchString[], char saveAll[], char fractionateSolids[], double Ti, double Pi, double dT, double dP, double massin){
+
+	char fractionateWater[2] = "!", // Fractionate all water? ("!" for no, "" for yes)
+	     celciusOutput[2] = "", // Ouptut temperatures in celcius? ("!" for no, "" for yes)
+	     ptpath[2]="!"; //Follow a PTpath file
+	
+	if (strcasecmp(mode,"ptpath")==0) ptpath[0]='\0';
+
+	double  Pmax = 90000, // Default global simulation constraints
+		Pmin = 1,
+		Tmax = 3000, 
+		Tmin = 500;
+
+	FILE *fp;
+	char path_string[100];
+
+	// Normalize starting composition	
+	double normconst=0;
+	int i;
+	for (i=0;i<16;i++){normconst=normconst+sc[i];}
+	for (i=0;i<16;i++){sc[i]=sc[i]*100/normconst;}
+
+	// Create .melts file containing the desired starting composition
+	sprintf(path_string, "%ssc.melts", prefix);
+	fp=fopen(path_string,"w");
+	fprintf(fp,	"Title: dummy\
+			\nInitial Composition: SiO2 %.4f\
+			\nInitial Composition: TiO2 %.4f\
+			\nInitial Composition: Al2O3 %.4f\
+			\nInitial Composition: Fe2O3 %.4f\
+			\nInitial Composition: FeO %.4f\
+			\nInitial Composition: MgO %.4f\
+			\nInitial Composition: CaO %.4f\
+			\nInitial Composition: Na2O %.4f\
+			\nInitial Composition: K2O %.4f\
+			\nInitial Composition: H2O %.4f\n",
+			sc[0],sc[1],sc[2],sc[3],sc[5],sc[7],sc[10],sc[11],sc[12],sc[15]);
+	fprintf(fp,	"Initial Temperature: %.2f\
+			\nInitial Pressure: %.2f\
+			\nlog fo2 Path: %s\n",
+			Ti,Pi,fo2Path);
+	if (fo2Delta!=0){
+		fprintf(fp,"log fo2 Delta: %.2f\n",fo2Delta);
+	}
+	fclose(fp);
+
+	//  Create melts_env file to specify type of MELTS calculation
+	sprintf(path_string, "%smelts_env", prefix);
+	fp=fopen(path_string,"w");
+	fprintf(fp,"\nALPHAMELTS_VERSION\t\t%s\
+			\nALPHAMELTS_MODE\t\t\t%s\
+			\n%sALPHAMELTS_PTPATH_FILE\t\tptpath\
+			\nALPHAMELTS_DELTAP\t\t%.0f\
+			\nALPHAMELTS_DELTAT\t\t%.0f\
+			\nALPHAMELTS_MAXP\t\t\t%.0f\
+			\nALPHAMELTS_MINP\t\t\t%.0f\
+			\nALPHAMELTS_MAXT\t\t\t%.0f\
+			\nALPHAMELTS_MINT\t\t\t%.0f\
+			\n%sALPHAMELTS_FRACTIONATE_SOLIDS\ttrue\
+			\n%sALPHAMELTS_MASSIN\t\t%g\
+			\n%sALPHAMELTS_FRACTIONATE_WATER\ttrue\
+			\n%sALPHAMELTS_MINW\t\t\t0.005\
+			\n%sALPHAMELTS_SAVE_ALL\t\ttrue\
+			\n%sALPHAMELTS_CELSIUS_OUTPUT\ttrue\n",
+			version,mode,ptpath,dP,dT,Pmax,Pmin,Tmax,Tmin,fractionateSolids,fractionateSolids,massin,fractionateWater,fractionateWater,saveAll,celciusOutput);
+	fclose(fp);
+
+	// Write batchfile
+	sprintf(path_string, "%sbatch", prefix);
+	fp=fopen(path_string,"w");
+	fputs(batchString,fp);
+	fclose(fp);
+
+
+	// Run alphaMELTS
+	// Replace '/scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl' with the correct path to the alphamelts perl script on your system
+	/***********************************************************/
+	char cmd_string[200];
+	sprintf(cmd_string,"cd %s; run_alphamelts.command -f melts_env -b batch > /dev/null", prefix); // Discard verbose output
+//	sprintf(cmd_string,"cd %s; /scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl -f melts_env -b batch > /dev/null", prefix); // Discard verbose output
+//	sprintf(cmd_string,"cd %s; /scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl -f melts_env -b batch", prefix); // Print all melts command line output for debugging
+	system(cmd_string);
+	/***********************************************************/	
+
+}
 
 
 /* Parse a MELTS file, return pointer to array of arrays of doubles */

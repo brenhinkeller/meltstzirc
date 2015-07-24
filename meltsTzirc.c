@@ -39,6 +39,26 @@ double meltsM(double * const array){
 	return M;
 }
 
+double meltsMmajors(double * const array){
+	// Format: SiO2 TiO2 Al2O3 Fe2O3 FeO MgO CaO Na2O K2O H2O
+	for (int i=0; i<9; i++){
+		printf("%.1f, ", array[i]);
+	}
+	double Si=array[0]/(28.0844+15.9994*2);
+	double Ti=array[1]/(47.867+15.9994*2);
+	double Al=array[2]/(26.9815+15.9994*1.5);
+	double Fe=array[3]/(55.845+15.9994*1.5) + array[4]/(55.845+15.9994);
+	double Mg=array[5]/(24.3050+15.9994);
+	double Ca=array[6]/(40.078+15.9994);
+	double Na=array[7]/(22.9898+15.9994/2);
+	double K=array[8]/(39.0983+15.9994/2);
+	double H=array[9]/(1.008+15.9994/2);
+	double TotalMoles = Si+Ti+Al+Fe+Mg+Ca+Na+K+H;
+	double M = (Na + K + 2*Ca) / (Al * Si) * TotalMoles;
+	printf("\t\t\t\t%.2g",M);
+	return M;
+}
+
 
 double tzirc(const double M, const double Zr){
 	double Tsat = 10108.0 / (log(496000.0/Zr) + 1.16*(M-1) + 1.48) - 273.15; // Temperature in Celcius
@@ -74,7 +94,7 @@ int main(int argc, char **argv){
 //	int n=world_rank-world_size;
 	// Location of scratch directory (ideally local scratch for each node)
 	// This location may vary on your system - contact your sysadmin if unsure
-	const char scratchdir[]="/scratch2/";
+	const char scratchdir[]="/scratch/";
 
 	// Simulation parameters
 	//Initial Pressure
@@ -119,20 +139,20 @@ int main(int argc, char **argv){
 		system(cmd_string);
 
 		//Set water
-//		data[i][15]=1.0;
+//		data[i][15]=0.1;
 		//Set CO2
 //		data[i][14]=0.1;
 
 		//Print current simulation
 		printf("\nSimulation #%u\n",i);
-		printf("SiO2, Al203, FeO, MgO, CaO, Na2O, K2O, H2O\n");
+		printf("SiO2, TiO2, Al203, Fe2O3, FeO, MgO, CaO, Na2O, K2O, H2O\n");
 		for (j=0;j<datacolumns;j++){
-			if (j==0 || j==2 || j==5 || j==7 || j==10 || j==11 || j==12 || j==15) printf("%g, ",data[i][j]);
+			if (j==0 || j==1 || j==2 || j==3 || j==5 || j==7 || j==10 || j==11 || j==12 || j==15) printf("%.1f, ",data[i][j]);
 		}
 		printf("\n");
 
 		//Run MELTS
-		runmeltsNoCO2(prefix,data[i],"pMELTS","isobaric","FMQ",fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",1700,Pi,deltaT,0,0.005);
+		runmelts(prefix,data[i],"pMELTS","isobaric","FMQ",fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",1700,Pi,deltaT,0,0.005);
 
 		// If simulation failed, clean up scratch directory and move on to next simulation
 		sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
@@ -195,6 +215,10 @@ int main(int argc, char **argv){
 			if (melts[0][row-1][SiO2]>(melts[0][row][SiO2])+0.01){
 				break;
 			}
+
+//			if (melts[0][row][mass]<50){
+//				break;
+//			}
 		}
 	
 		M = meltsM(&melts[0][row][SiO2]);
