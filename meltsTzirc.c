@@ -94,7 +94,7 @@ int main(int argc, char **argv){
 //	int n=world_rank-world_size;
 	// Location of scratch directory (ideally local scratch for each node)
 	// This location may vary on your system - contact your sysadmin if unsure
-	const char scratchdir[]="/scratch/";
+	const char scratchdir[]="/scratch1/";
 
 	// Simulation parameters
 	//Initial Pressure
@@ -128,7 +128,7 @@ int main(int argc, char **argv){
 
 	//  Variables for finding saturation temperature
 	int row, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
-	double M, Tf, Tsat, Zrf, Zrsat;
+	double M, Tf, Tsat, Zrf, Zrsat, MZr;
 
 	for (i=0;i<datarows;i++){
 
@@ -152,7 +152,7 @@ int main(int argc, char **argv){
 		printf("\n");
 
 		//Run MELTS
-		runmelts(prefix,data[i],"pMELTS","isobaric","FMQ",fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",1700,Pi,deltaT,0,0.005);
+		runmeltsmajors(prefix,data[i],"pMELTS","isobaric","FMQ",fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",1700,Pi,deltaT,0,0.005);
 
 		// If simulation failed, clean up scratch directory and move on to next simulation
 		sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
@@ -202,7 +202,7 @@ int main(int argc, char **argv){
 		Tsat=0;	
 		for(row=1; row<(meltsrows[0]-1); row++){
 			//Calculate melt M and [Zr]
-			M = meltsM(&melts[0][row][SiO2]);
+			M = meltsMmajors(&melts[0][row][SiO2]);
 			Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Assuming bulk Kd=0.1
 			printf("\t%.0f\t%.0f\n", tzirc(M, Zrf), melts[0][row][T]);
 
@@ -221,7 +221,7 @@ int main(int argc, char **argv){
 //			}
 		}
 	
-		M = meltsM(&melts[0][row][SiO2]);
+		M = meltsMmajors(&melts[0][row][SiO2]);
 		Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Final zirconium content, assuming bulk kd=0.1
 		printf("\t%.0f\t%.0f\n", tzirc(M, Zrf), melts[0][row][T]);
 
@@ -233,6 +233,15 @@ int main(int argc, char **argv){
 
 		printf("Final melt percentage: %g, Water Content: %g, M value: %g\n", melts[0][row][mass], melts[0][row][H2O], M);
 		printf("Final Zr: %g, Zr at saturation: %g, Saturation temperature: %g, Final T: %g\n", Zrf, Zrsat, Tsat, Tf);
+
+		// Determine how much zircon is saturated
+		if (Zrf>Zrsat){
+			MZr=melts[0][row][mass]/100*(Zrf-Zrsat);
+		} else {
+			MZr=0;
+		}
+		printf("Mass of zircon saturated: %g", MZr);
+
 	}
 
 
