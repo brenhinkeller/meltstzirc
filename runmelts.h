@@ -2,7 +2,7 @@
 // Last modified 1/25/15 by C. Brenhin Keller
 
 /* Run melts */
-void runmelts(char prefix[], double sc[], char version[], char mode[], char fo2Path[], double fo2Delta, char batchString[], char saveAll[], char fractionateSolids[], double Ti, double Pi, double dT, double dP, double massin){
+void runmelts(const char prefix[], double sc[], const char version[], const char mode[], const char fo2Path[], double fo2Delta, const char batchString[], const char saveAll[], const char fractionateSolids[], double Ti, double Pi, double dT, double dP, double massin){
 
 	char fractionateWater[2] = "!", // Fractionate all water? ("!" for no, "" for yes)
 	     celciusOutput[2] = "", // Ouptut temperatures in celcius? ("!" for no, "" for yes)
@@ -96,7 +96,7 @@ void runmelts(char prefix[], double sc[], char version[], char mode[], char fo2P
 
 
 /* Run melts */
-void runmeltsNoCO2(char prefix[], double sc[], char version[], char mode[], char fo2Path[], double fo2Delta, char batchString[], char saveAll[], char fractionateSolids[], double Ti, double Pi, double dT, double dP, double massin){
+void runmeltsNoCO2(const char prefix[], double sc[], const char version[], const char mode[], const char fo2Path[], double fo2Delta, char batchString[], const char saveAll[], const char fractionateSolids[], double Ti, double Pi, double dT, double dP, double massin){
 
 	char fractionateWater[2] = "!", // Fractionate all water? ("!" for no, "" for yes)
 	     celciusOutput[2] = "", // Ouptut temperatures in celcius? ("!" for no, "" for yes)
@@ -188,7 +188,7 @@ void runmeltsNoCO2(char prefix[], double sc[], char version[], char mode[], char
 }
 
 /* Run melts */
-void runmeltsmajors(char prefix[], double sc[], char version[], char mode[], char fo2Path[], double fo2Delta, char batchString[], char saveAll[], char fractionateSolids[], double Ti, double Pi, double dT, double dP, double massin){
+void runmeltsmajors(const char prefix[], double sc[], const char version[], const char mode[], const char fo2Path[], double fo2Delta, char batchString[], const char saveAll[], const char fractionateSolids[], double Ti, double Pi, double dT, double dP, double massin){
 
 	char fractionateWater[2] = "!", // Fractionate all water? ("!" for no, "" for yes)
 	     celciusOutput[2] = "", // Ouptut temperatures in celcius? ("!" for no, "" for yes)

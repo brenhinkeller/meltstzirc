@@ -87,25 +87,42 @@ int main(int argc, char **argv){
 	uint32_t i, j, k;
 
 
-	// Variables that control size and location of the simulation
-	/***********************************************************/	
-	// Number of simulations to run , and 
-//	const int nsims=world_size*sims_per_task, 
-//	int n=world_rank-world_size;
-	// Location of scratch directory (ideally local scratch for each node)
-	// This location may vary on your system - contact your sysadmin if unsure
-	const char scratchdir[]="/scratch1/";
+
 
 	// Simulation parameters
-	//Initial Pressure
-	double Pi=600;
-	// fO2 offset from FMQ
+	/**********************************************************/
+	// Version to run MELTS in (MELTS or pMELTS)
+	const char version[]="pMELTS";
+	// Melts mode (isobaric, ptpath, etc)
+	const char mode[]="isobaric";
+
+	// fO2 buffer to use (None, FMQ, etc.)
+	const char fo2Buffer[]="FMQ";
+	// fO2 offset from buffer
 	double fo2Delta=1;
+
+	// Initial temperature (Celcius)
+	double Ti=1700;
+	//Initial Pressure (bar)
+	double Pi=600;
 	//Temperature step size in each simulation
 	const int deltaT=-10;
+	// Pressure step size;
+	const int deltaP=0;
+	
+	// Variables that control size and location of the simulation
 	/***********************************************************/	
-	const int maxMinerals=40, maxSteps=1700/abs(deltaT), maxColumns=50;
+	// Number of simulations to run
+//	const int nsims=world_size*sims_per_task;
+//	int n=world_rank-world_size;
+//
+	// Location of scratch directory (ideally local scratch for each node)
+	// This location may vary on your system - contact your sysadmin if unsure
+	const char scratchdir[]="/scratch/";
 
+	// Variables that determine how much memory to allocate to imported results
+	const int maxMinerals=40, maxSteps=1700/abs(deltaT), maxColumns=50;
+	/***********************************************************/
 
 	// Import 2-d source data array as a flat double array. Format:
 	// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, H2O, Zr;
@@ -152,7 +169,7 @@ int main(int argc, char **argv){
 		printf("\n");
 
 		//Run MELTS
-		runmeltsmajors(prefix,data[i],"pMELTS","isobaric","FMQ",fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",1700,Pi,deltaT,0,0.005);
+		runmelts(prefix,data[i],version,mode,fo2Buffer,fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",Ti,Pi,deltaT,deltaP,0.005);
 
 		// If simulation failed, clean up scratch directory and move on to next simulation
 		sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
@@ -202,7 +219,7 @@ int main(int argc, char **argv){
 		Tsat=0;	
 		for(row=1; row<(meltsrows[0]-1); row++){
 			//Calculate melt M and [Zr]
-			M = meltsMmajors(&melts[0][row][SiO2]);
+			M = meltsM(&melts[0][row][SiO2]);
 			Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Assuming bulk Kd=0.1
 			printf("\t%.0f\t%.0f\n", tzirc(M, Zrf), melts[0][row][T]);
 
@@ -216,12 +233,13 @@ int main(int argc, char **argv){
 				break;
 			}
 
-//			if (melts[0][row][mass]<50){
-//				break;
-//			}
+			// Or when remaining melt falls below 5%
+			if (melts[0][row][mass]<5){
+				break;
+			}
 		}
 	
-		M = meltsMmajors(&melts[0][row][SiO2]);
+		M = meltsM(&melts[0][row][SiO2]);
 		Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Final zirconium content, assuming bulk kd=0.1
 		printf("\t%.0f\t%.0f\n", tzirc(M, Zrf), melts[0][row][T]);
 
@@ -240,7 +258,7 @@ int main(int argc, char **argv){
 		} else {
 			MZr=0;
 		}
-		printf("Mass of zircon saturated: %g", MZr);
+		printf("Mass of zircon saturated: %g\n", MZr);
 
 	}
 
