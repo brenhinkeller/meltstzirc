@@ -233,8 +233,8 @@ int main(int argc, char **argv){
 				break;
 			}
 
-			// Or when remaining melt falls below 5%
-			if (melts[0][row][mass]<5){
+			// Or when remaining melt falls below 35%
+			if (melts[0][row][mass]<35){
 				break;
 			}
 		}
@@ -263,16 +263,6 @@ int main(int argc, char **argv){
 	}
 
 
-
-
-
-	for (i=0;i<datarows;i++){
-		for (j=0;j<datacolumns;j++){
-			printf("%g,",data[i][j]);
-		}
-		printf("\n");
-	}
-
-return 0;
+	return 0;
 }
 

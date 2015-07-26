@@ -86,7 +86,8 @@ void runmelts(const char prefix[], double sc[], const char version[], const char
 	// Replace '/scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl' with the correct path to the alphamelts perl script on your system
 	/***********************************************************/
 	char cmd_string[200];
-	sprintf(cmd_string,"cd %s; /scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl -f melts_env -b batch > /dev/null", prefix); // Discard verbose output
+	sprintf(cmd_string,"cd %s; run_alphamelts.command -f melts_env -b batch > /dev/null", prefix); // Discard verbose output
+//	sprintf(cmd_string,"cd %s; /scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl -f melts_env -b batch > /dev/null", prefix); // Discard verbose output
 //	sprintf(cmd_string,"cd %s; /scratch/gpfs/cbkeller/run_alphamelts_v1.41.pl -f melts_env -b batch", prefix); // Print all melts command line output for debugging
 	system(cmd_string);
 	/***********************************************************/	
