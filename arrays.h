@@ -237,10 +237,11 @@ double **csvparse(const char filePath[], const char delim, uint32_t * const rest
 			i++;
 		}
 		fclose(fp);
-
-		fprintf(stderr,"Maximum number of characters: %d\n", maxChars);
-		fprintf(stderr,"Maximum number of delimiters: %d\n", maxColumns);
-		fprintf(stderr,"Number of rows: %d\n", numRows);
+		#ifdef DEBUG
+			fprintf(stderr,"Maximum number of characters: %d\n", maxChars);
+			fprintf(stderr,"Maximum number of delimiters: %d\n", maxColumns);
+			fprintf(stderr,"Number of rows: %d\n", numRows);
+		#endif 
 
 		return importedMatrix;
 	}
@@ -329,10 +330,11 @@ double *csvparseflat(const char filePath[], const char delim, uint32_t * const r
 		}
 		fclose(fp);
 
-		fprintf(stderr,"Maximum number of characters: %d\n", maxChars);
-		fprintf(stderr,"Maximum number of delimiters: %d\n", maxColumns);
-		fprintf(stderr,"Number of rows: %d\n", numRows);
-
+		#ifdef DEBUG
+			fprintf(stderr,"Maximum number of characters: %d\n", maxChars);
+			fprintf(stderr,"Maximum number of delimiters: %d\n", maxColumns);
+			fprintf(stderr,"Number of rows: %d\n", numRows);
+		#endif
 		return importedMatrix;
 	}
 

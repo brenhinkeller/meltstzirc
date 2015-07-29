@@ -1,15 +1,18 @@
 /******************************************************************************
- * FILE: meltsTzirc.c
- * DESCRIPTION:
- *   Calculates zircon saturation temperature and mass of zircon saturated using
- *   pMELTS batch crystallization and the zircon saturation equations of
- *   Boehnke et al. 2013
+ * FILE: meltsTzircParallel.c
+ * DESCRIPTION:  
+ *   Calculates zircon saturation temperature and mass of zircon saturated using 
+ *   pMELTS batch crystallization and the zircon saturation equations of 
+ *   Boehnke et al. 2013. Calculates saturation of different whole-rock
+ *   compositions in parallel with MPI.
  * AUTHOR: C. Brenhin Keller
  ******************************************************************************/
 
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <mpi.h>
 #include <strings.h>
 #include <math.h>
 #include "arrays.h"
@@ -17,9 +20,6 @@
 
 double meltsM(double * const array){
 	// Format: SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5 H2O
-	for (int i=0; i<16; i++){
-		if (i==0 || i==2 || i==5 || i==7 || i==10 || i==11 || i==12)  printf("%.1f, ", array[i]);
-	}
 	double Si=array[0]/(28.0844+15.9994*2);
 	double Ti=array[1]/(47.867+15.9994*2);
 	double Al=array[2]/(26.9815+15.9994*1.5);
@@ -35,15 +35,11 @@ double meltsM(double * const array){
 	double P=array[13]/(30.9738+15.9994*2.5);
 	double TotalMoles = Si+Ti+Al+Fe+Cr+Mn+Mg+Ni+Co+Ca+Na+K+P;
 	double M = (Na + K + 2*Ca) / (Al * Si) * TotalMoles;
-	printf("\t\t\t\t%.2g",M);
 	return M;
 }
 
 double meltsMmajors(double * const array){
 	// Format: SiO2 TiO2 Al2O3 Fe2O3 FeO MgO CaO Na2O K2O H2O
-	for (int i=0; i<9; i++){
-		printf("%.1f, ", array[i]);
-	}
 	double Si=array[0]/(28.0844+15.9994*2);
 	double Ti=array[1]/(47.867+15.9994*2);
 	double Al=array[2]/(26.9815+15.9994*1.5);
@@ -55,7 +51,6 @@ double meltsMmajors(double * const array){
 //	double H=array[9]/(1.008+15.9994/2);
 	double TotalMoles = Si+Ti+Al+Fe+Mg+Ca+Na+K;//+H;
 	double M = (Na + K + 2*Ca) / (Al * Si) * TotalMoles;
-	printf("\t\t\t\t%.2g",M);
 	return M;
 }
 
@@ -86,9 +81,6 @@ int main(int argc, char **argv){
 	uint32_t datarows, datacolumns;
 	uint32_t i, j, k;
 
-
-
-
 	// Simulation parameters
 	/**********************************************************/
 	// Version to run MELTS in (MELTS or pMELTS)
@@ -112,6 +104,9 @@ int main(int argc, char **argv){
 
 	// Stop simulations at a given percent melt
 	const double minPercentMelt=35;
+
+	// Assumed bulk mineral/melt Zr partition coefficient
+	const double Kd=0.01;
 	
 	// Variables that control size and location of the simulation
 	/***********************************************************/	
@@ -121,7 +116,7 @@ int main(int argc, char **argv){
 //
 	// Location of scratch directory (ideally local scratch for each node)
 	// This location may vary on your system - contact your sysadmin if unsure
-	const char scratchdir[]="/scratch/";
+	const char scratchdir[]="/scratch/gpfs/cbkeller";
 
 	// Variables that determine how much memory to allocate to imported results
 	const int maxMinerals=40, maxSteps=1700/abs(deltaT), maxColumns=50;
@@ -129,7 +124,7 @@ int main(int argc, char **argv){
 
 	// Import 2-d source data array as a flat double array. Format:
 	// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, H2O, Zr;
-	double** const restrict data = csvparse(argv[1],',', &datarows, &datacolumns);
+	double** const data = csvparse(argv[1],',', &datarows, &datacolumns);
 
 	// Malloc space for the imported melts array
 	double **rawMatrix=mallocDoubleArray(maxMinerals*maxSteps,maxColumns);
@@ -146,30 +141,29 @@ int main(int argc, char **argv){
 	}
 	int minerals;
 
+
+
+	printf("Kv\tMbulk\tTliq\tTsatb\tTf\tTsat\tZrsat\tZrf\tFf\tZrbulk\tMZr\n");
+
+		
 	//  Variables for finding saturation temperature
 	int row, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
 	double M, Tf, Tsat, Zrf, Zrsat, MZr;
 
 	for (i=0;i<datarows;i++){
 
-
 		//Configure working directory
 		sprintf(prefix,"%sout%u/", scratchdir, i);
 		sprintf(cmd_string,"mkdir -p %s", prefix);
 		system(cmd_string);
 
+//		usleep(10);
+
+
 		//Set water
 //		data[i][15]=0.1;
 		//Set CO2
 //		data[i][14]=0.1;
-
-		//Print current simulation
-		printf("\nSimulation #%u\n",i);
-		printf("SiO2, TiO2, Al203, Fe2O3, FeO, MgO, CaO, Na2O, K2O, H2O\n");
-		for (j=0;j<datacolumns;j++){
-			if (j==0 || j==1 || j==2 || j==3 || j==5 || j==7 || j==10 || j==11 || j==12 || j==15) printf("%.1f, ",data[i][j]);
-		}
-		printf("\n");
 
 		//Run MELTS
 		runmelts(prefix,data[i],version,mode,fo2Buffer,fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",Ti,Pi,deltaT,deltaP,0.005);
@@ -217,19 +211,16 @@ int main(int argc, char **argv){
 			else if (strcmp(elements[0][col], "H2O")==0) H2O=col;
 		}
 		
-		// Calculate saturation temperature and minimum necessary zirconium content
-		
+		// Calculate saturation temperature and minimum necessary zirconium content	
 		Tsat=0;	
 		for(row=1; row<(meltsrows[0]-1); row++){
 			//Calculate melt M and [Zr]
 			M = meltsM(&melts[0][row][SiO2]);
 			Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Assuming bulk Kd=0.1
-			printf("\t%.0f\t%.0f\n", tzirc(M, Zrf), melts[0][row][T]);
 
 			// Check if we've cooled below the saturation temperature yet
 		       	if (Tsat==0 && tzirc(M, Zrf) > melts[0][row][T]){
 				Tsat = tzirc(M, Zrf);
-				printf("Saturation reached\n");
 			}
  			// Stop when we get to maximum SiO2
 			if (melts[0][row-1][SiO2]>(melts[0][row][SiO2])+0.01){
@@ -243,17 +234,12 @@ int main(int argc, char **argv){
 		}
 	
 		M = meltsM(&melts[0][row][SiO2]);
-		Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Final zirconium content, assuming bulk kd=0.1
-		printf("\t%.0f\t%.0f\n", tzirc(M, Zrf), melts[0][row][T]);
-
+		Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + Kd*(100-melts[0][row][mass])); // Final zirconium content, assuming bulk kd=0.1
 		Tf = melts[0][row][T];
 		Zrsat = tzircZr(M, Tf);
 		if (Tsat==0){
 			Tsat = tzirc(M, Zrf);
 		}
-
-		printf("Final melt percentage: %g, Water Content: %g, M value: %g\n", melts[0][row][mass], melts[0][row][H2O], M);
-		printf("Final Zr: %g, Zr at saturation: %g, Saturation temperature: %g, Final T: %g\n", Zrf, Zrsat, Tsat, Tf);
 
 		// Determine how much zircon is saturated
 		if (Zrf>Zrsat){
@@ -261,7 +247,14 @@ int main(int argc, char **argv){
 		} else {
 			MZr=0;
 		}
-		printf("Mass of zircon saturated: %g\n", MZr);
+
+
+		M = meltsM(&melts[0][0][SiO2]);
+		// Print results. Format:
+		// Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, Zrbulk, MZr,
+		printf("%u\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", i, M, melts[0][0][T], tzirc(M, data[i][datacolumns-1]), Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], data[i][datacolumns-1], MZr);
+
+
 
 	}
 
