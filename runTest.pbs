@@ -1,0 +1,7 @@
+#!/bin/bash
+#PBS -l nodes=2:ppn=16,walltime=00:05:00
+#PBS -m e
+#PBS -M cbkeller@princeton.edu
+
+module load openmpi
+mpiexec ./meltsTzircParallel ignmajors.csv 1>tzirc.log 2>./error.log

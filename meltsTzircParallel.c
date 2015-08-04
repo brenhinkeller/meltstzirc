@@ -11,9 +11,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <mpi.h>
 #include <strings.h>
+#include <string.h>
 #include <math.h>
 #include "arrays.h"
 #include "runmelts.h"
@@ -166,7 +168,7 @@ int main(int argc, char **argv){
 		/***********************************************************/	
 		// Location of scratch directory (ideally local scratch for each node)
 		// This location may vary on your system - contact your sysadmin if unsure
-		const char scratchdir[]="/scratch/gpfs/cbkeller/";
+		const char scratchdir[]="/scratch/";
 
 		// Variables that determine how much memory to allocate to imported results
 		const int maxMinerals=40, maxSteps=1700/abs(deltaT), maxColumns=50;
@@ -221,8 +223,8 @@ int main(int argc, char **argv){
 			sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
 			if ((fp = fopen(cmd_string, "r")) == NULL) {
 				fprintf(stderr, "%u: MELTS equilibration failed to produce output.\n", i);
-//				sprintf(cmd_string,"rm -r %s", prefix);
-//				system(cmd_string);
+				sprintf(cmd_string,"rm -r %s", prefix);
+				system(cmd_string);
 				continue;
 			}
 
@@ -231,10 +233,13 @@ int main(int argc, char **argv){
 			importmelts(prefix, melts, rawMatrix, meltsrows, meltscolumns, names, elements, &minerals);
 			if (minerals<1 | strcmp(names[0],"liquid_0")!=0) {
 				fprintf(stderr, "%u: MELTS equilibration failed to calculate liquid composition.\n", i);
-//				sprintf(cmd_string,"rm -r %s", prefix);
-//				system(cmd_string);
+				sprintf(cmd_string,"rm -r %s", prefix);
+				system(cmd_string);
 				continue;
 			}
+			// Can delete temp files after we've read them
+			sprintf(cmd_string,"rm -r %s", prefix);
+			system(cmd_string);
 
 
 			// Find the columns containing useful elements
