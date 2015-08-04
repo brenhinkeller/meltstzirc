@@ -149,6 +149,9 @@ int main(int argc, char **argv){
 		// Import 2-d source data array as a flat double array. Format:
 		// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, H2O, Zr;
 		double** const data = csvparse(argv[1],',', &datarows, &datacolumns);
+		for (i=0; i<datarows; i++) {
+			printf("%g\n", data[i][0]);
+		}
 
 		// Listen for task requests from the worker nodes
 		for (i=1; i<world_size; i++){
@@ -180,7 +183,7 @@ int main(int argc, char **argv){
 		// Declare variables used only on the worker nodes
 		MPI_Request sReq;
 		MPI_Status sStat;
-		double* ic[16];
+		double ic[16];
 
 		// Malloc space for the imported melts array
 		double **rawMatrix=mallocDoubleArray(maxMinerals*maxSteps,maxColumns);
