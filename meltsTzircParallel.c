@@ -73,8 +73,7 @@ int main(int argc, char **argv){
 	char prefix[200], cmd_string[500];
 	uint32_t datarows, datacolumns;
 	uint32_t i, j, k;
-	int world_size, world_rank, rc, block[2];
-
+	int world_size, world_rank, rc;
 
 
 	//Check input arguments
@@ -92,7 +91,6 @@ int main(int argc, char **argv){
 	// Get world size (number of MPI processes) and world rank (# of this process)
 	MPI_Comm_size(MPI_COMM_WORLD,&world_size);
 	MPI_Comm_rank(MPI_COMM_WORLD,&world_rank);
-
 
 
 
@@ -122,13 +120,13 @@ int main(int argc, char **argv){
 
 	// Assumed bulk mineral/melt Zr partition coefficient
 	const double Kd=0.01;
-	
+
 	// Variables that control size and location of the simulation
 	/***********************************************************/	
 	// Number of simulations to run
-//	const int nsims=world_size*sims_per_task;
-//	int n=world_rank-world_size;
-//
+	//	const int nsims=world_size*sims_per_task;
+	//	int n=world_rank-world_size;
+	//
 	// Location of scratch directory (ideally local scratch for each node)
 	// This location may vary on your system - contact your sysadmin if unsure
 	const char scratchdir[]="/scratch/gpfs/cbkeller";
@@ -137,142 +135,188 @@ int main(int argc, char **argv){
 	const int maxMinerals=40, maxSteps=1700/abs(deltaT), maxColumns=50;
 	/***********************************************************/
 
-	// Import 2-d source data array as a flat double array. Format:
-	// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, H2O, Zr;
-	double** const data = csvparse(argv[1],',', &datarows, &datacolumns);
-
-	// Malloc space for the imported melts array
-	double **rawMatrix=mallocDoubleArray(maxMinerals*maxSteps,maxColumns);
-	double ***melts=malloc(maxMinerals*sizeof(double**));
-	char **names=malloc(maxMinerals*sizeof(char*));
-	char ***elements=malloc(maxMinerals*sizeof(char**));
-	int *meltsrows=malloc(maxMinerals*sizeof(int)), *meltscolumns=malloc(maxMinerals*sizeof(int));
-	for (i=0; i<maxMinerals; i++){
-		names[i]=malloc(30*sizeof(char));
-		elements[i]=malloc(maxColumns*sizeof(char*));
-		for (k=0; k<maxColumns; k++){
-			elements[i][k]=malloc(30*sizeof(char));
-		}
-	}
-	int minerals;
 
 
+	if (world_rank==0){
+		// Declare variables used only on the root node
+		int buf[world_size-1], nextReady;
+		MPI_Request reqs[world_size-1];
+		MPI_Status stats[world_size-1];
 
-	printf("Kv\tMbulk\tTliq\tTsatb\tTf\tTsat\tZrsat\tZrf\tFf\tSiO2\tZrbulk\tMZr\n");
+		// Print format of output 
+		printf("Kv\tMbulk\tTliq\tTsatb\tTf\tTsat\tZrsat\tZrf\tFf\tSiO2\tZrbulk\tMZr\n");
 
-		
-	//  Variables for finding saturation temperature
-	int row, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
-	double M, Tf, Tsat, Zrf, Zrsat, MZr;
+		// Import 2-d source data array as a flat double array. Format:
+		// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, H2O, Zr;
+		double** const data = csvparse(argv[1],',', &datarows, &datacolumns);
 
-	for (i=0;i<datarows;i++){
-
-		//Configure working directory
-		sprintf(prefix,"%sout%u/", scratchdir, i);
-		sprintf(cmd_string,"mkdir -p %s", prefix);
-		system(cmd_string);
-
-//		usleep(10);
-
-
-		//Set water
-//		data[i][15]=0.1;
-		//Set CO2
-//		data[i][14]=0.1;
-
-		//Run MELTS
-		runmelts(prefix,data[i],version,mode,fo2Buffer,fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",Ti,Pi,deltaT,deltaP,0.005);
-
-		// If simulation failed, clean up scratch directory and move on to next simulation
-		sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
-		if ((fp = fopen(cmd_string, "r")) == NULL) {
-			fprintf(stderr, "%u: MELTS equilibration failed to produce output.\n", i);
-//			sprintf(cmd_string,"rm -r %s", prefix);
-//			system(cmd_string);
-			continue;
+		// Listen for task requests from the worker nodes
+		for (i=1; i<world_size; i++){
+			//        *buf, count, datatype, dest, tag, comm, *request
+			MPI_Irecv(&buf[i-1], 1, MPI_INT, i, 0, MPI_COMM_WORLD, &reqs[i-1]);
 		}
 
-		// Import results, if they exist. Format:
-		// Pressure Temperature mass S H V Cp viscosity SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5 H2O
-		importmelts(prefix, melts, rawMatrix, meltsrows, meltscolumns, names, elements, &minerals);
-		if (minerals<1 | strcmp(names[0],"liquid_0")!=0) {
-			fprintf(stderr, "%u: MELTS equilibration failed to calculate liquid composition.\n", i);
-//			sprintf(cmd_string,"rm -r %s", prefix);
-//			system(cmd_string);
-			continue;
+		printf("got here\n");
+		// Once any worker asks for a new task, send next task to that worker and keep listening
+		for (i=0; i<datarows; i++){
+			MPI_Waitany(world_size-1, reqs, &nextReady, stats);
+			//       *buf, count, datatype, dest, tag, comm
+			MPI_Send(data[i], 16, MPI_DOUBLE, nextReady+1, 1, MPI_COMM_WORLD);
+			//        *buf, count, datatype, source, tag, comm, *request
+			MPI_Irecv(&buf[nextReady], 1, MPI_INT, nextReady+1, 0, MPI_COMM_WORLD, &reqs[nextReady]);
 		}
-
-
-		// Find the columns containing useful elements
-		for(int col=0; col<meltscolumns[0]; col++){
-			if (strcmp(elements[0][col], "Pressure")==0) P=col;
-			else if (strcmp(elements[0][col], "Temperature")==0) T=col;
-			else if (strcmp(elements[0][col], "mass")==0) mass=col;
-			else if (strcmp(elements[0][col], "SiO2")==0) SiO2=col;
-			else if (strcmp(elements[0][col], "TiO2")==0) TiO2=col;
-			else if (strcmp(elements[0][col], "Al2O3")==0) Al2O3=col;
-			else if (strcmp(elements[0][col], "Fe2O3")==0) Fe2O3=col;
-			else if (strcmp(elements[0][col], "Cr2O3")==0) Cr2O3=col;
-			else if (strcmp(elements[0][col], "FeO")==0) FeO=col;
-			else if (strcmp(elements[0][col], "MnO")==0) MnO=col;
-			else if (strcmp(elements[0][col], "MgO")==0) MgO=col;
-			else if (strcmp(elements[0][col], "NiO")==0) NiO=col;
-			else if (strcmp(elements[0][col], "CoO")==0) CoO=col;
-			else if (strcmp(elements[0][col], "CaO")==0) CaO=col;
-			else if (strcmp(elements[0][col], "Na2O")==0) Na2O=col;
-			else if (strcmp(elements[0][col], "K2O")==0) K2O=col;
-			else if (strcmp(elements[0][col], "P2O5")==0) P2O5=col;
-			else if (strcmp(elements[0][col], "CO2")==0) CO2=col;
-			else if (strcmp(elements[0][col], "H2O")==0) H2O=col;
+		printf("got here\n");
+		// Wait for all workers to complete, then send the stop signal
+		MPI_Waitall(world_size-1, reqs, stats);	
+		double stop[16];
+		stop[0]=-1.0;
+		for (i=1; i<world_size; i++){
+			MPI_Send(&stop, 16, MPI_DOUBLE, i, 1, MPI_COMM_WORLD);	
 		}
-		
-		// Calculate saturation temperature and minimum necessary zirconium content	
-		Tsat=0;	
-		for(row=1; row<(meltsrows[0]-1); row++){
-			//Calculate melt M and [Zr]
-			M = meltsM(&melts[0][row][SiO2]);
-			Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Assuming bulk Kd=0.1
-
-			// Check if we've cooled below the saturation temperature yet
-		       	if (Tsat==0 && tzirc(M, Zrf) > melts[0][row][T]){
-				Tsat = tzirc(M, Zrf);
-			}
- 			// Stop when we get to maximum SiO2
-			if (melts[0][row-1][SiO2]>(melts[0][row][SiO2])+0.01){
-				break;
-			}
-
-			// Or when remaining melt falls below 35%
-			if (melts[0][row][mass]<minPercentMelt){
-				break;
-			}
-		}
-	
-		M = meltsM(&melts[0][row][SiO2]);
-		Zrf = data[i][datacolumns-1]*100/(melts[0][row][mass] + Kd*(100-melts[0][row][mass])); // Final zirconium content, assuming bulk kd=0.1
-		Tf = melts[0][row][T];
-		Zrsat = tzircZr(M, Tf);
-		if (Tsat==0){
-			Tsat = tzirc(M, Zrf);
-		}
-
-		// Determine how much zircon is saturated
-		if (Zrf>Zrsat){
-			MZr=melts[0][row][mass]/100*(Zrf-Zrsat);
-		} else {
-			MZr=0;
-		}
-
-
-		M = meltsM(&melts[0][0][SiO2]);
-		// Print results. Format:
-		// Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, SiO2, Zrbulk, MZr,
-		printf("%u\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", i, M, melts[0][0][T], tzirc(M, data[i][datacolumns-1]), Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], melts[0][0][SiO2], data[i][datacolumns-1], MZr);
-
-
-
+		printf("got here\n");
 	}
 
+	else {
+		// Declare variables used only on the worker nodes
+		MPI_Request sReq;
+		MPI_Status sStat;
+		double* ic[16];
+
+		// Malloc space for the imported melts array
+		double **rawMatrix=mallocDoubleArray(maxMinerals*maxSteps,maxColumns);
+		double ***melts=malloc(maxMinerals*sizeof(double**));
+		char **names=malloc(maxMinerals*sizeof(char*));
+		char ***elements=malloc(maxMinerals*sizeof(char**));
+		int *meltsrows=malloc(maxMinerals*sizeof(int)), *meltscolumns=malloc(maxMinerals*sizeof(int));
+		for (i=0; i<maxMinerals; i++){
+			names[i]=malloc(30*sizeof(char));
+			elements[i]=malloc(maxColumns*sizeof(char*));
+			for (k=0; k<maxColumns; k++){
+				elements[i][k]=malloc(30*sizeof(char));
+			}
+		}
+		int minerals;
+
+
+		//  Variables for finding saturation temperature
+		int row, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
+		double M, Tf, Tsat, Zrf, Zrsat, MZr;
+
+
+		while (1) {
+			// Ask root node for new task
+			//       *buf, count, datatype, dest, tag, comm, *request
+			MPI_Isend(&world_rank, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &sReq);
+			//       *buf, count, datatype, source, tag, comm, *status
+			MPI_Recv(&ic, 16, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, &sStat);
+
+			printf("Rank: %i, Zr: %g\n", world_rank, ic[0]);
+
+			// Exit loop if stop signal recieved
+			if (ic[0]<0) break;
+
+			usleep(100);
+
+//			//Configure working directory
+//			sprintf(prefix,"%sout%u/", scratchdir, i);
+//			sprintf(cmd_string,"mkdir -p %s", prefix);
+//			system(cmd_string);
+//
+////			//Set water
+////			ic[15]=0.1;
+////			//Set CO2
+////			ic[14]=0.1;
+//
+//			//Run MELTS
+//			runmelts(prefix,ic,version,mode,fo2Buffer,fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",Ti,Pi,deltaT,deltaP,0.005);
+//
+//			// If simulation failed, clean up scratch directory and move on to next simulation
+//			sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
+//			if ((fp = fopen(cmd_string, "r")) == NULL) {
+//				fprintf(stderr, "%u: MELTS equilibration failed to produce output.\n", i);
+//				//			sprintf(cmd_string,"rm -r %s", prefix);
+//				//			system(cmd_string);
+//				continue;
+//			}
+//
+//			// Import results, if they exist. Format:
+//			// Pressure Temperature mass S H V Cp viscosity SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5 H2O
+//			importmelts(prefix, melts, rawMatrix, meltsrows, meltscolumns, names, elements, &minerals);
+//			if (minerals<1 | strcmp(names[0],"liquid_0")!=0) {
+//				fprintf(stderr, "%u: MELTS equilibration failed to calculate liquid composition.\n", i);
+//				//			sprintf(cmd_string,"rm -r %s", prefix);
+//				//			system(cmd_string);
+//				continue;
+//			}
+//
+//
+//			// Find the columns containing useful elements
+//			for(int col=0; col<meltscolumns[0]; col++){
+//				if (strcmp(elements[0][col], "Pressure")==0) P=col;
+//				else if (strcmp(elements[0][col], "Temperature")==0) T=col;
+//				else if (strcmp(elements[0][col], "mass")==0) mass=col;
+//				else if (strcmp(elements[0][col], "SiO2")==0) SiO2=col;
+//				else if (strcmp(elements[0][col], "TiO2")==0) TiO2=col;
+//				else if (strcmp(elements[0][col], "Al2O3")==0) Al2O3=col;
+//				else if (strcmp(elements[0][col], "Fe2O3")==0) Fe2O3=col;
+//				else if (strcmp(elements[0][col], "Cr2O3")==0) Cr2O3=col;
+//				else if (strcmp(elements[0][col], "FeO")==0) FeO=col;
+//				else if (strcmp(elements[0][col], "MnO")==0) MnO=col;
+//				else if (strcmp(elements[0][col], "MgO")==0) MgO=col;
+//				else if (strcmp(elements[0][col], "NiO")==0) NiO=col;
+//				else if (strcmp(elements[0][col], "CoO")==0) CoO=col;
+//				else if (strcmp(elements[0][col], "CaO")==0) CaO=col;
+//				else if (strcmp(elements[0][col], "Na2O")==0) Na2O=col;
+//				else if (strcmp(elements[0][col], "K2O")==0) K2O=col;
+//				else if (strcmp(elements[0][col], "P2O5")==0) P2O5=col;
+//				else if (strcmp(elements[0][col], "CO2")==0) CO2=col;
+//				else if (strcmp(elements[0][col], "H2O")==0) H2O=col;
+//			}
+//
+//			// Calculate saturation temperature and minimum necessary zirconium content	
+//			Tsat=0;	
+//			for(row=1; row<(meltsrows[0]-1); row++){
+//				//Calculate melt M and [Zr]
+//				M = meltsM(&melts[0][row][SiO2]);
+//				Zrf = ic[datacolumns-1]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Assuming bulk Kd=0.1
+//
+//				// Check if we've cooled below the saturation temperature yet
+//				if (Tsat==0 && tzirc(M, Zrf) > melts[0][row][T]){
+//					Tsat = tzirc(M, Zrf);
+//				}
+//				// Stop when we get to maximum SiO2
+//				if (melts[0][row-1][SiO2]>(melts[0][row][SiO2])+0.01){
+//					break;
+//				}
+//
+//				// Or when remaining melt falls below 35%
+//				if (melts[0][row][mass]<minPercentMelt){
+//					break;
+//				}
+//			}
+//
+//			M = meltsM(&melts[0][row][SiO2]);
+//			Zrf = ic[datacolumns-1]*100/(melts[0][row][mass] + Kd*(100-melts[0][row][mass])); // Final zirconium content, assuming bulk kd=0.1
+//			Tf = melts[0][row][T];
+//			Zrsat = tzircZr(M, Tf);
+//			if (Tsat==0){
+//				Tsat = tzirc(M, Zrf);
+//			}
+//
+//			// Determine how much zircon is saturated
+//			if (Zrf>Zrsat){
+//				MZr=melts[0][row][mass]/100*(Zrf-Zrsat);
+//			} else {
+//				MZr=0;
+//			}
+//
+//
+//			M = meltsM(&melts[0][0][SiO2]);
+//			// Print results. Format:
+//			// Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, SiO2, Zrbulk, MZr,
+//			printf("%u\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", i, M, melts[0][0][T], tzirc(M, ic[datacolumns-1]), Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], melts[0][0][SiO2], ic[datacolumns-1], MZr);
+		}
+	}
 	MPI_Finalize();
 	return 0;
 }
