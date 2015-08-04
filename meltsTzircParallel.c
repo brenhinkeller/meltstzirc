@@ -69,6 +69,13 @@ double tzircZr(const double M, const double T){
 }
 
 int main(int argc, char **argv){
+	FILE *fp;
+	char prefix[200], cmd_string[500];
+	uint32_t datarows, datacolumns;
+	uint32_t i, j, k;
+	int world_size, world_rank, rc, block[2];
+
+
 
 	//Check input arguments
 	if (argc != 2) {
@@ -76,10 +83,18 @@ int main(int argc, char **argv){
 		exit(1);
 	}
 
-	FILE *fp;
-	char prefix[200], cmd_string[500];
-	uint32_t datarows, datacolumns;
-	uint32_t i, j, k;
+	// Start MPI
+	rc = MPI_Init(&argc,&argv); 
+	if (rc != MPI_SUCCESS) {
+		printf ("Error starting MPI program. Terminating.\n"); MPI_Abort(MPI_COMM_WORLD, rc);
+	}
+
+	// Get world size (number of MPI processes) and world rank (# of this process)
+	MPI_Comm_size(MPI_COMM_WORLD,&world_size);
+	MPI_Comm_rank(MPI_COMM_WORLD,&world_rank);
+
+
+
 
 	// Simulation parameters
 	/**********************************************************/
@@ -143,7 +158,7 @@ int main(int argc, char **argv){
 
 
 
-	printf("Kv\tMbulk\tTliq\tTsatb\tTf\tTsat\tZrsat\tZrf\tFf\tZrbulk\tMZr\n");
+	printf("Kv\tMbulk\tTliq\tTsatb\tTf\tTsat\tZrsat\tZrf\tFf\tSiO2\tZrbulk\tMZr\n");
 
 		
 	//  Variables for finding saturation temperature
@@ -251,14 +266,14 @@ int main(int argc, char **argv){
 
 		M = meltsM(&melts[0][0][SiO2]);
 		// Print results. Format:
-		// Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, Zrbulk, MZr,
-		printf("%u\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", i, M, melts[0][0][T], tzirc(M, data[i][datacolumns-1]), Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], data[i][datacolumns-1], MZr);
+		// Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, SiO2, Zrbulk, MZr,
+		printf("%u\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", i, M, melts[0][0][T], tzirc(M, data[i][datacolumns-1]), Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], melts[0][0][SiO2], data[i][datacolumns-1], MZr);
 
 
 
 	}
 
-
+	MPI_Finalize();
 	return 0;
 }
 
