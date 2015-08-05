@@ -224,7 +224,7 @@ int main(int argc, char **argv){
 			// If simulation failed, clean up scratch directory and move on to next simulation
 			sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
 			if ((fp = fopen(cmd_string, "r")) == NULL) {
-				fprintf(stderr, "%u: MELTS equilibration failed to produce output.\n", i);
+				fprintf(stderr, "%s : MELTS equilibration failed to produce output.\n", prefix);
 //				sprintf(cmd_string,"rm -r %s", prefix);
 //				system(cmd_string);
 				continue;
@@ -232,9 +232,10 @@ int main(int argc, char **argv){
 
 			// Import results, if they exist. Format:
 			// Pressure Temperature mass S H V Cp viscosity SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5 H2O
-			importmelts(prefix, melts, rawMatrix, meltsrows, meltscolumns, names, elements, &minerals);
+			minerals=maxMinerals;
+			importmelts(maxSteps, maxColumns, prefix, melts, rawMatrix, meltsrows, meltscolumns, names, elements, &minerals);
 			if (minerals<1 | strcmp(names[0],"liquid_0")!=0) {
-				fprintf(stderr, "%u: MELTS equilibration failed to calculate liquid composition.\n", i);
+				fprintf(stderr, "%s : MELTS equilibration failed to calculate liquid composition.\n", prefix);
 //				sprintf(cmd_string,"rm -r %s", prefix);
 //				system(cmd_string);
 				continue;
@@ -307,7 +308,7 @@ int main(int argc, char **argv){
 
 			M = meltsM(&melts[0][0][SiO2]);
 			// Print results. Format:
-			// Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, SiO2, Zrbulk, MZr,
+			// Kv, Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, SiO2, Zrbulk, MZr,
 			printf("%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", ic[17], M, melts[0][0][T], tzirc(M, ic[16]), Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], melts[0][0][SiO2], ic[16], MZr);
 		}
 	}

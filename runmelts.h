@@ -274,7 +274,7 @@ void runmeltsmajors(const char prefix[], double sc[], const char version[], cons
 
 
 /* Parse a MELTS file, return pointer to array of arrays of doubles */
-double ***importmelts(char prefix[], double ***importedMelts, double **rawMatrix, int *rows, int *columns, char **names, char ***elements, int *minerals) {
+double ***importmelts(const int allwdRws, const int allwdClmns, char prefix[], double ***importedMelts, double **rawMatrix, int *rows, int *columns, char **names, char ***elements, int *minerals) {
 
 	// File to open
 	FILE *fp;
@@ -313,6 +313,18 @@ double ***importmelts(char prefix[], double ***importedMelts, double **rawMatrix
 	// If the last line isn't blank, add one more to the row counter
 	fseek(fp,-1,SEEK_CUR);
 	if(getc(fp)!='\n'){numRows++;}
+
+	if (numRows>(allwdRws * (*minerals))){
+		fprintf(stderr, "%s : Too many melts rows\n", prefix);
+		*minerals=0;
+		return NULL;
+	}
+	if (maxColumns>allwdClmns){
+		fprintf(stderr, "%s : Too many melts columns\n", prefix);
+		*minerals=0;
+		return NULL;
+	}
+	
 
 	// For each line,
 	int mineral=0, i=0, j=0, k, i_last, field[maxColumns+2];
@@ -356,6 +368,10 @@ double ***importmelts(char prefix[], double ***importedMelts, double **rawMatrix
 				rows[mineral-1]=i-i_last-3;
 			}
 			mineral++;
+			if (mineral>*minerals){
+				fprintf(stderr, "%s : Too many minerals\n", prefix);
+				break;
+			}
 			i_last=i;
 		}
 		strcpy(str_last, str);
