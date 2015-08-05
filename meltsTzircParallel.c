@@ -135,7 +135,9 @@ int main(int argc, char **argv){
 		MPI_Status sStat;
 		double ic[18];
 		FILE *fp;
-		char prefix[200], cmd_string[500];
+//		char prefix[200], cmd_string[500];
+		char* prefix = malloc(500*sizeof(char));
+		char* cmd_string = malloc(1000*sizeof(char));
 
 		// Simulation parameters
 		/**********************************************************/
@@ -168,10 +170,10 @@ int main(int argc, char **argv){
 		/***********************************************************/	
 		// Location of scratch directory (ideally local scratch for each node)
 		// This location may vary on your system - contact your sysadmin if unsure
-		const char scratchdir[]="/scratch/";
+		const char scratchdir[]="/scratch/gpfs/cbkeller/";
 
 		// Variables that determine how much memory to allocate to imported results
-		const int maxMinerals=40, maxSteps=1700/abs(deltaT), maxColumns=50;
+		const int maxMinerals=100, maxSteps=1700/abs(deltaT), maxColumns=50;
 		/***********************************************************/
 
 
@@ -207,8 +209,8 @@ int main(int argc, char **argv){
 			if (ic[0]<0) break;
 
 			//Configure working directory
-			sprintf(prefix,"%sout%g/", scratchdir, ic[17]);
-			sprintf(cmd_string,"rm -rf %s; mkdir -p %s", prefix, prefix);
+			sprintf(prefix,"%sout%i_%.0f/", scratchdir, world_rank, ic[17]);
+			sprintf(cmd_string,"mkdir -p %s", prefix);
 			system(cmd_string);
 
 //			//Set water
@@ -217,14 +219,14 @@ int main(int argc, char **argv){
 //			ic[14]=0.1;
 			
 			//Run MELTS
-			runmelts(prefix,ic,version,mode,fo2Buffer,fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",Ti,Pi,deltaT,deltaP,0.005);
+			runmelts(prefix,ic,version,"isobaric",fo2Buffer,fo2Delta,"1\nsc.melts\n10\n1\n3\n1\nliquid\n1\n0.99\n1\n10\n0\n4\n0\n","","!",Ti,Pi,deltaT,deltaP,0.005);
 
 			// If simulation failed, clean up scratch directory and move on to next simulation
 			sprintf(cmd_string,"%sPhase_main_tbl.txt", prefix);
 			if ((fp = fopen(cmd_string, "r")) == NULL) {
 				fprintf(stderr, "%u: MELTS equilibration failed to produce output.\n", i);
-				sprintf(cmd_string,"rm -r %s", prefix);
-				system(cmd_string);
+//				sprintf(cmd_string,"rm -r %s", prefix);
+//				system(cmd_string);
 				continue;
 			}
 
@@ -233,13 +235,13 @@ int main(int argc, char **argv){
 			importmelts(prefix, melts, rawMatrix, meltsrows, meltscolumns, names, elements, &minerals);
 			if (minerals<1 | strcmp(names[0],"liquid_0")!=0) {
 				fprintf(stderr, "%u: MELTS equilibration failed to calculate liquid composition.\n", i);
-				sprintf(cmd_string,"rm -r %s", prefix);
-				system(cmd_string);
+//				sprintf(cmd_string,"rm -r %s", prefix);
+//				system(cmd_string);
 				continue;
 			}
 			// Can delete temp files after we've read them
-			sprintf(cmd_string,"rm -r %s", prefix);
-			system(cmd_string);
+//			sprintf(cmd_string,"rm -r %s", prefix);
+//			system(cmd_string);
 
 
 			// Find the columns containing useful elements
