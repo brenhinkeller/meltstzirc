@@ -11,6 +11,9 @@ variables={'Mbulk','Tliq','Tsat','Tsatb','Zrsat','Zrf','Ff','MZr'};
 for var=variables;
     igncn1.(var{:})=NaN(size(igncn1.Kv));
 end
+for var=variables;
+    igncn1.err.(var{:})=0.02;
+end
 
 % Parse melts struct row by row, inserting each value in the right place
 for i=1:length(igncn1.Kv)
