@@ -161,7 +161,7 @@ int main(int argc, char **argv){
 		const int deltaP=0;
 
 		// Stop simulations at a given percent melt
-		const double minPercentMelt=35;
+		const double minPercentMelt=10;
 
 		// Assumed bulk mineral/melt Zr partition coefficient
 		const double Kd=0.01;
@@ -196,7 +196,7 @@ int main(int argc, char **argv){
 
 		//  Variables for finding saturation temperature
 		int row, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
-		double M, Tf, Tsat, Zrf, Zrsat, MZr;
+		double M, Tf, Tsat, Ts, Tsmax, Zrf, Zrsat, MZr;
 
 
 		while (1) {
@@ -215,7 +215,7 @@ int main(int argc, char **argv){
 			system(cmd_string);
 
 //			//Set water
-//			ic[15]=0.1;
+//			ic[15]=3.0;
 //			//Set CO2
 //			ic[14]=0.1;
 			
@@ -270,34 +270,45 @@ int main(int argc, char **argv){
 			}
 
 			// Calculate saturation temperature and minimum necessary zirconium content	
-			Tsat=0;	
+			Tsat=0;
+			Tsmax=0;
 			for(row=1; row<(meltsrows[0]-1); row++){
 				//Calculate melt M and [Zr]
 				M = meltsM(&melts[0][row][SiO2]);
-				Zrf = ic[16]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Assuming bulk Kd=0.1
+				Zrf = ic[16]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Zirconium content in melt, assuming bulk Kd=0.1
+				Ts = tzirc(M, Zrf);
+				
+				// Keep track of maximum saturation temperature
+				if (Ts > Tsmax){
+					Tsmax = Ts;
+				}
 
 				// Check if we've cooled below the saturation temperature yet
-				if (Tsat==0 && tzirc(M, Zrf) > melts[0][row][T]){
-					Tsat = tzirc(M, Zrf);
+				if (Tsat==0 && Ts > melts[0][row][T]){
+					Tsat = Ts;
 				}
 				// Stop when we get to maximum SiO2
 				if (melts[0][row-1][SiO2]>(melts[0][row][SiO2])+0.01){
+					row--;
 					break;
 				}
 
 				// Or when remaining melt falls below 35%
 				if (melts[0][row][mass]<minPercentMelt){
+					row--;
 					break;
 				}
 			}
+			// If zircon never saturated, check what the best (highest) saturation temperature was
+			if (Tsat==0){
+				Tsat = Tsmax;
+			}
 
+			//Check out the final saturation state
 			M = meltsM(&melts[0][row][SiO2]);
-			Zrf = ic[16]*100/(melts[0][row][mass] + Kd*(100-melts[0][row][mass])); // Final zirconium content, assuming bulk kd=0.1
+			Zrf = ic[16]*100/(melts[0][row][mass] + Kd*(100-melts[0][row][mass])); // Assuming Kd=0.1 again
 			Tf = melts[0][row][T];
 			Zrsat = tzircZr(M, Tf);
-			if (Tsat==0){
-				Tsat = tzirc(M, Zrf);
-			}
 
 			// Determine how much zircon is saturated
 			if (Zrf>Zrsat){
