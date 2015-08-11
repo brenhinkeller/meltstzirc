@@ -271,13 +271,13 @@ int main(int argc, char **argv){
 
 			// Calculate saturation temperature and minimum necessary zirconium content	
 			Tsat=0;
-			Tsmax=0;
+			Tsmax = tzirc(meltsM(&melts[0][0][SiO2]), ic[16]);
 			for(row=1; row<(meltsrows[0]-1); row++){
 				//Calculate melt M and [Zr]
 				M = meltsM(&melts[0][row][SiO2]);
 				Zrf = ic[16]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Zirconium content in melt, assuming bulk Kd=0.1
 				Ts = tzirc(M, Zrf);
-				
+
 				// Keep track of maximum saturation temperature
 				if (Ts > Tsmax){
 					Tsmax = Ts;
