@@ -19,7 +19,7 @@
 #include "runmelts.h"
 
 double meltsM(double * const array){
-	// Format: SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5 H2O
+	// Format: SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5
 	double Si=array[0]/(28.0844+15.9994*2);
 	double Ti=array[1]/(47.867+15.9994*2);
 	double Al=array[2]/(26.9815+15.9994*1.5);
@@ -101,7 +101,7 @@ int main(int argc, char **argv){
 		printf("Kv\tT\tF\tM\tSiO2\tZr\tZrsat\tMZr\tTSat\n");
 
 		// Import 2-d source data array as a flat double array. Format:
-		// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, H2O, Zr;
+		// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O, Zr, Kv;
 		double** const data = csvparse(argv[1],',', &datarows, &datacolumns);
 
 		// Listen for task requests from the worker nodes
@@ -297,7 +297,7 @@ int main(int argc, char **argv){
 					}
 				}
 
-//				// Or when remaining melt falls below 35%
+//				// Or when remaining melt falls below minimum percent
 //				if (melts[0][row][mass]<minPercentMelt){
 //					break;
 //				}

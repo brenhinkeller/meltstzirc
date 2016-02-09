@@ -21,7 +21,7 @@
 #include "runmelts.h"
 
 double meltsM(double * const array){
-	// Format: SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5 H2O
+	// Format: SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5
 	double Si=array[0]/(28.0844+15.9994*2);
 	double Ti=array[1]/(47.867+15.9994*2);
 	double Al=array[2]/(26.9815+15.9994*1.5);
@@ -103,7 +103,7 @@ int main(int argc, char **argv){
 		printf("Kv\tMbulk\tTliq\tTsatb\tTf\tTsat\tZrsat\tZrf\tFf\tSiO2\tZrbulk\tMZr\n");
 
 		// Import 2-d source data array as a flat double array. Format:
-		// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, H2O, Zr;
+		// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O, Zr, Kv;
 		double** const data = csvparse(argv[1],',', &datarows, &datacolumns);
 
 		// Listen for task requests from the worker nodes
@@ -196,7 +196,7 @@ int main(int argc, char **argv){
 
 		//  Variables for finding saturation temperature
 		int row, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
-		double M, Tf, Tsat, Ts, Tsmax, Zrf, Zrsat, MZr;
+		double M, Tf, Tsat, Tsatbulk, Ts, Tsmax, Zrf, Zrsat, MZr;
 
 
 		while (1) {
@@ -271,7 +271,8 @@ int main(int argc, char **argv){
 
 			// Calculate saturation temperature and minimum necessary zirconium content	
 			Tsat=0;
-			Tsmax = tzirc(meltsM(&melts[0][0][SiO2]), ic[16]);
+			Tsatbulk = tzirc(meltsM(&melts[0][0][SiO2]), ic[16]);
+			Tsmax = Tsatbulk;
 			for(row=1; row<(meltsrows[0]-1); row++){
 				//Calculate melt M and [Zr]
 				M = meltsM(&melts[0][row][SiO2]);
@@ -293,7 +294,7 @@ int main(int argc, char **argv){
 					break;
 				}
 
-				// Or when remaining melt falls below 35%
+				// Or when remaining melt falls below minimum percent
 				if (melts[0][row][mass]<minPercentMelt){
 					row--;
 					break;
@@ -321,7 +322,7 @@ int main(int argc, char **argv){
 			M = meltsM(&melts[0][0][SiO2]);
 			// Print results. Format:
 			// Kv, Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, SiO2, Zrbulk, MZr,
-			printf("%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", ic[17], M, melts[0][0][T], tzirc(M, ic[16]), Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], melts[0][0][SiO2], ic[16], MZr);
+			printf("%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", ic[17], M, melts[0][0][T], Tsatbulk, Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], melts[0][0][SiO2], ic[16], MZr);
 		}
 	}
 	MPI_Finalize();
