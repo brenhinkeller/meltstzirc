@@ -1,9 +1,13 @@
  %% Import tzirc data
 if ~exist('igncn1','var'); load igncn1; end
+name='tzirc20F12kbar';
+load([name '.log']);
 
 % Make struct from input file 
-for var={'Kv','Mbulk','Tliq','Tsat','Tsatb','Zrsat','Zrf','Ff','SiO2','Zrbulk','MZr'};
-    eval(['tzirclog.' var{:} '=' var{:}])
+variables={'Kv','Mbulk','Tliq','Tsatb','Tf','Tsat','Zrsat','Zrf','Ff','SiO2','Zr','MZr'};
+tzirclog=struct;
+for i=1:length(variables)
+   eval(['tzirclog.(variables{i})=' name '(:,i);'])
 end
 
 % Create new struct fields for imported data
