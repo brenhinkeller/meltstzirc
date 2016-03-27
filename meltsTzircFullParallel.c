@@ -310,6 +310,10 @@ int main(int argc, char **argv){
 								if (isnan(OrKd)) OrKd=0;
 								if (isnan(AbKd)) AbKd = (AnKd + OrKd)/2;
 
+								printf("Feldspar CaO: %g\n",melts[i][j][fspCaO]);
+								printf("Feldspar Na2O: %g\n",melts[i][j][fspNa2O]);
+								printf("Feldspar K2O: %g\n",melts[i][j][fspK2O]);
+
 								iKd = (220.1298+56.18)/56.18*melts[i][j][fspCaO]/100 * AnKd\
 								      +(228.2335+30.99)/30.99*melts[i][j][fspNa2O]/100 * AbKd\
 								      +(228.2335+47.1)/47.1*melts[i][j][fspK2O]/100 * OrKd;
@@ -324,9 +328,10 @@ int main(int argc, char **argv){
 									*(71.8444/79.8768)-melts[i][j][oxideMnO]*(71.8444/70.9374)))/100 * AnKd\
 								      + (1 - (melts[i][j][oxideTiO2]+melts[i][j][oxideMnO]+(melts[i][j][oxideTiO2]\
 									*(71.8444/79.8768)-melts[i][j][oxideMnO]*(71.8444/70.9374)))/100) * MtKd;
+							} else {
+								iKd = getGERMKd(names[i],"Zr",melts[0][row][SiO2]);
 							}
 
-							iKd = getGERMKd(names[i],"Zr",melts[0][row][SiO2]);
 							if (isnan(iKd)){iKd = 0;}
 							printf("Mineral: %s, Kd: %g\n",names[i],iKd);
 							Kd += iKd * melts[i][j][mass];
