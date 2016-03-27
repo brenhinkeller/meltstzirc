@@ -17,6 +17,7 @@
 #include <math.h>
 #include "arrays.h"
 #include "runmelts.h"
+#include "GERM.h"
 
 double meltsM(double * const array){
 	// Format: SiO2 TiO2 Al2O3 Fe2O3 Cr2O3 FeO MnO MgO NiO CoO CaO Na2O K2O P2O5
@@ -39,7 +40,7 @@ double meltsM(double * const array){
 }
 
 double meltsMmajors(double * const array){
-	// Format: SiO2 TiO2 Al2O3 Fe2O3 FeO MgO CaO Na2O K2O H2O
+	// Format: SiO2 TiO2 Al2O3 Fe2O3 FeO MgO CaO Na2O K2O 
 	double Si=array[0]/(28.0844+15.9994*2);
 	double Ti=array[1]/(47.867+15.9994*2);
 	double Al=array[2]/(26.9815+15.9994*1.5);
@@ -48,8 +49,7 @@ double meltsMmajors(double * const array){
 	double Ca=array[6]/(40.078+15.9994);
 	double Na=array[7]/(22.9898+15.9994/2);
 	double K=array[8]/(39.0983+15.9994/2);
-//	double H=array[9]/(1.008+15.9994/2);
-	double TotalMoles = Si+Ti+Al+Fe+Mg+Ca+Na+K;//+H;
+	double TotalMoles = Si+Ti+Al+Fe+Mg+Ca+Na+K;
 	double M = (Na + K + 2*Ca) / (Al * Si) * TotalMoles;
 	return M;
 }
@@ -133,7 +133,6 @@ int main(int argc, char **argv){
 		MPI_Status sStat;
 		double ic[18];
 		FILE *fp;
-//		char prefix[200], cmd_string[500];
 		char* prefix = malloc(500*sizeof(char));
 		char* cmd_string = malloc(1000*sizeof(char));
 
@@ -162,7 +161,8 @@ int main(int argc, char **argv){
 		const double minPercentMelt=35;
 
 		// Assumed bulk mineral/melt Zr partition coefficient
-		const double Kd=0.01;
+		double Kd=0.01;
+		double iKd;
 
 		// Variables that control size and location of the simulation
 		/***********************************************************/	
@@ -193,8 +193,11 @@ int main(int argc, char **argv){
 
 
 		//  Variables for finding saturation temperature
-		int row, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
+		int row, col, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
+		int fspCaO, fspNa2O, fspK2O, oxideTiO2, oxideFe2O3, oxideFeO, oxideMnO;
+
 		double M, Tf, Tsat, Zrf, Zrsat, MZr, MZrLast, MZrIncrement;
+		double AnKd, AbKd, OrKd, IlmKd, MtKd;
 
 
 		while (1) {
@@ -244,8 +247,8 @@ int main(int argc, char **argv){
 			system(cmd_string);
 
 
-			// Find the columns containing useful elements
-			for(int col=0; col<meltscolumns[0]; col++){
+			// Find the columns containing useful elements for the melt
+			for(col=0; col<meltscolumns[0]; col++){
 				if (strcmp(elements[0][col], "Pressure")==0) P=col;
 				else if (strcmp(elements[0][col], "Temperature")==0) T=col;
 				else if (strcmp(elements[0][col], "mass")==0) mass=col;
@@ -267,6 +270,25 @@ int main(int argc, char **argv){
 				else if (strcmp(elements[0][col], "H2O")==0) H2O=col;
 			}
 
+			// Find the columns containing useful elements for other minerals
+			for (i=1; i<minerals; i++){
+				if (strncasecmp(names[i],"feldspar",8)==0){
+					for(col=0; col<meltscolumns[i]; col++){
+						if (strcmp(elements[i][col], "CaO")==0) fspCaO=col;
+						else if (strcmp(elements[i][col], "Na2O")==0) fspNa2O=col;
+						else if (strcmp(elements[i][col], "K2O")==0) fspK2O=col;
+					}
+
+				} else if (strncasecmp(names[i],"rhm_oxide",9)==0){
+					for(col=0; col<meltscolumns[i]; col++){
+						if (strcmp(elements[i][col], "TiO2")==0) oxideTiO2=col;
+						else if (strcmp(elements[i][col], "Fe2O3")==0) oxideFe2O3=col;
+						else if (strcmp(elements[i][col], "FeO")==0) oxideFeO=col;
+						else if (strcmp(elements[i][col], "MnO")==0) oxideMnO=col;
+					}
+
+				}
+			}
 
 
 
@@ -275,9 +297,49 @@ int main(int argc, char **argv){
 			MZrLast=0;
 			for(row=0; row<(meltsrows[0]-1); row++){
 
-				//Calculate zircon saturation state at present step
+				// Calculate bulk zircon partition coefficient at present step
+				Kd = 0;
+				for (i=1; i<minerals; i++){
+					for (j=0; j<meltsrows[i]; j++){
+						if (fabs(melts[0][row][T]-melts[i][j][T]) < 0.01){
+							if (strncasecmp(names[i],"feldspar",8)==0){
+								AnKd = getGERMKd("AnKdorthite","Zr",melts[0][row][SiO2]);
+								AbKd = getGERMKd("Albite","Zr",melts[0][row][SiO2]);
+								OrKd = getGERMKd("Orthoclase","Zr",melts[0][row][SiO2]);
+								if (isnan(AnKd)) AnKd=0;
+								if (isnan(OrKd)) OrKd=0;
+								if (isnan(AbKd)) AbKd = (AnKd + OrKd)/2;
+
+								iKd = (220.1298+56.18)/56.18*melts[i][j][fspCaO]/100 * AnKd\
+								      +(228.2335+30.99)/30.99*melts[i][j][fspNa2O]/100 * AbKd\
+								      +(228.2335+47.1)/47.1*melts[i][j][fspK2O]/100 * OrKd;
+
+							} else if (strncasecmp(names[i],"rhm_oxide",9)==0){
+								IlmKd = getGERMKd("Ilmenite","Zr",melts[0][row][SiO2]);
+								MtKd = getGERMKd("Magnetite","Zr",melts[0][row][SiO2]);
+								if (isnan(IlmKd)) IlmKd = 0;
+								if (isnan(MtKd)) MtKd = 0;
+
+								iKd = (melts[i][j][oxideTiO2]+melts[i][j][oxideMnO]+(melts[i][j][oxideTiO2]\
+									*(71.8444/79.8768)-melts[i][j][oxideMnO]*(71.8444/70.9374)))/100 * AnKd\
+								      + (1 - (melts[i][j][oxideTiO2]+melts[i][j][oxideMnO]+(melts[i][j][oxideTiO2]\
+									*(71.8444/79.8768)-melts[i][j][oxideMnO]*(71.8444/70.9374)))/100) * MtKd;
+							}
+
+							iKd = getGERMKd(names[i],"Zr",melts[0][row][SiO2]);
+							if (isnan(iKd)){iKd = 0;}
+							printf("Mineral: %s, Kd: %g\n",names[i],iKd);
+							Kd += iKd * melts[i][j][mass];
+						}
+					}		
+				}
+				Kd = Kd / (100 - melts[0][row][mass]);
+				printf("Bulk Kd: %g\n",Kd);
+
+
+				// Calculate zircon saturation state at present step
 				M = meltsM(&melts[0][row][SiO2]);
-				Zrf = ic[16]*100/(melts[0][row][mass] + 0.01*(100-melts[0][row][mass])); // Assuming bulk Kd=0.1
+				Zrf = ic[16]*100/(melts[0][row][mass] + Kd*(100-melts[0][row][mass])); // Assuming bulk Kd=0.1
 				Tsat = tzirc(M, Zrf);
 				Tf = melts[0][row][T];
 				Zrsat = tzircZr(M, Tf);
