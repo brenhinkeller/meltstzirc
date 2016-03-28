@@ -98,7 +98,7 @@ int main(int argc, char **argv){
 		MPI_Status stats[world_size-1];
 
 		// Print format of output
-		printf("Kv\tT\tF\tM\tSiO2\tZr\tZrsat\tMZr\tTSat\n");
+		printf("Kv\tT\tF\tM\tSiO2\tZr\tZrsat\tMZrIncr\tTSat\n");
 
 		// Import 2-d source data array as a flat double array. Format:
 		// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O, Zr, Kv;
@@ -158,7 +158,7 @@ int main(int argc, char **argv){
 		const int deltaP=0;
 
 		// Stop simulations at a given percent melt
-		const double minPercentMelt=35;
+		const double minPercentMelt=5;
 
 		// Assumed bulk mineral/melt Zr partition coefficient
 		double Kd=0.01;
@@ -300,6 +300,8 @@ int main(int argc, char **argv){
 				// Calculate bulk zircon partition coefficient at present step
 				Kd = 0;
 				for (i=1; i<minerals; i++){
+					// See what minerals might be crystallizing at this temperature
+					// so we can find their GERM partition coefficients
 					for (j=0; j<meltsrows[i]; j++){
 						if (fabs(melts[0][row][T]-melts[i][j][T]) < 0.01){
 							if (strncasecmp(names[i],"feldspar",8)==0){
@@ -309,10 +311,6 @@ int main(int argc, char **argv){
 								if (isnan(AnKd)) AnKd=0;
 								if (isnan(OrKd)) OrKd=0;
 								if (isnan(AbKd)) AbKd = (AnKd + OrKd)/2;
-
-								printf("Feldspar CaO: %g\n",melts[i][j][fspCaO]);
-								printf("Feldspar Na2O: %g\n",melts[i][j][fspNa2O]);
-								printf("Feldspar K2O: %g\n",melts[i][j][fspK2O]);
 
 								iKd = (220.1298+56.18)/56.18*melts[i][j][fspCaO]/100 * AnKd\
 								      +(228.2335+30.99)/30.99*melts[i][j][fspNa2O]/100 * AbKd\
@@ -333,13 +331,13 @@ int main(int argc, char **argv){
 							}
 
 							if (isnan(iKd)){iKd = 0;}
-							printf("Mineral: %s, Kd: %g\n",names[i],iKd);
+//							printf("Mineral: %s, Kd: %g\n",names[i],iKd);
 							Kd += iKd * melts[i][j][mass];
 						}
 					}		
 				}
 				Kd = Kd / (100 - melts[0][row][mass]);
-				printf("Bulk Kd: %g\n",Kd);
+//				printf("Bulk Kd: %g\n",Kd);
 
 
 				// Calculate zircon saturation state at present step
@@ -364,10 +362,10 @@ int main(int argc, char **argv){
 					}
 				}
 
-//				// Or when remaining melt falls below minimum percent
-//				if (melts[0][row][mass]<minPercentMelt){
-//					break;
-//				}
+				// Or when remaining melt falls below minimum percent
+				if (melts[0][row][mass]<minPercentMelt){
+					break;
+				}
 
 				// Print results. Format:
 				// Kv, T, F, M, SiO2, Zr, Zrsat, MZr, TSat
