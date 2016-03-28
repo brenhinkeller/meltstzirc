@@ -131,7 +131,7 @@ int main(int argc, char **argv){
 		// Declare variables used only on the worker nodes
 		MPI_Request sReq;
 		MPI_Status sStat;
-		double ic[18];
+		double ic[18], Kd, iKd;
 		FILE *fp;
 		char* prefix = malloc(500*sizeof(char));
 		char* cmd_string = malloc(1000*sizeof(char));
@@ -151,7 +151,7 @@ int main(int argc, char **argv){
 		// Initial temperature (Celcius)
 		double Ti=1700;
 		//Initial Pressure (bar)
-		double Pi=600;
+		double Pi=6000;
 		//Temperature step size in each simulation
 		const int deltaT=-10;
 		// Pressure step size;
@@ -159,10 +159,6 @@ int main(int argc, char **argv){
 
 		// Stop simulations at a given percent melt
 		const double minPercentMelt=5;
-
-		// Assumed bulk mineral/melt Zr partition coefficient
-		double Kd=0.01;
-		double iKd;
 
 		// Variables that control size and location of the simulation
 		/***********************************************************/	
