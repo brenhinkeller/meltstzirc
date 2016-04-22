@@ -1,7 +1,7 @@
-if ~exist('mcigncn1','var'); load mcigncn1; end
-if ~exist('igncn1','var'); load igncn1; end
+% if ~exist('mcigncn1','var'); load mcigncn1; end
+% if ~exist('igncn1','var'); load igncn1; end
 
-% % load igncn1F20P4; load mcigncn1F20P4;
+
 %% Zirconium content
 
 Elem='Zr';

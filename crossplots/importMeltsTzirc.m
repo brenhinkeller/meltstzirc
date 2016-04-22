@@ -1,7 +1,13 @@
- %% Import tzirc data
+%% Import tzirc data
+cd ~/Desktop/meltstzirc/output/
+ 
 if ~exist('igncn1','var'); load igncn1; end
-name='tzirc20F12kbar';
-load([name '.log']);
+
+name='tzirc5F12kbH2O01';
+
+system(['grep -e ''^[0-9\.][0-9\.]*\(\t[0-9\.][0-9\.]*\)\{11\}$'' ' name '.log > ' name '.tsv']);
+
+load([name '.tsv']);
 
 % Make struct from input file 
 variables={'Kv','Mbulk','Tliq','Tsatb','Tf','Tsat','Zrsat','Zrf','Ff','SiO2','Zr','MZr'};
@@ -33,7 +39,7 @@ end
     
     
     
-%%
+%% Zircon saturation systematics cross-plots
 t=igncn1.MZr>0;
 figure; plot(igncn1.SiO2(~t), igncn1.MZr(~t),'.r');
 hold on; plot(igncn1.SiO2(t), igncn1.MZr(t),'.b');
