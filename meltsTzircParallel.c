@@ -101,7 +101,7 @@ int main(int argc, char **argv){
 		MPI_Status stats[world_size-1];
 
 		// Print format of output 
-		printf("Kv\tMbulk\tTliq\tTsatb\tTf\tTsat\tZrsat\tZrf\tFf\tSiO2\tZrbulk\tMZr\n");
+		printf("Kv\tMbulk\tTliq\tTsatb\tTf\tTsat\tZrsat\tZrf\tFf\tSiO2\tZrbulk\tMZr\tTcryst\n");
 
 		// Import 2-d source data array as a flat double array. Format:
 		// SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O, Zr, Kv;
@@ -195,7 +195,7 @@ int main(int argc, char **argv){
 		//  Variables for finding saturation temperature
 		int row, col, P, T, mass, SiO2, TiO2, Al2O3, Fe2O3, Cr2O3, FeO, MnO, MgO, NiO, CoO, CaO, Na2O, K2O, P2O5, CO2, H2O;
 		int fspCaO, fspNa2O, fspK2O, oxideTiO2, oxideFe2O3, oxideFeO, oxideMnO;
-		double M, Tf, Tsat, Tsatbulk, Ts, Tsmax, Zrf, Zrsat, MZr;
+		double M, Tf, Tsat, Tsatbulk, Ts, Tsmax, Zrf, Zrsat, MZr, MZrnow, Tcryst;
 		double AnKd, AbKd, OrKd, IlmKd, MtKd;
 
 		while (1) {
@@ -287,14 +287,19 @@ int main(int argc, char **argv){
 
 				}
 			}
-
+			// Initial saturation state
+			M = meltsM(&melts[0][0][SiO2]);
+			Zrf = ic[16]; // Zirconium content in melt
+			Tf = melts[0][0][T]; // Current temperature
+			Zrsat = tzircZr(M, Tf); // Zirconium required for saturation
+			Tsatbulk = tzirc(M, Zrf); // Temperature required for saturation
 
 			// Calculate saturation temperature and minimum necessary zirconium content	
 			Tsat=0;
-			Tsatbulk = tzirc(meltsM(&melts[0][0][SiO2]), ic[16]);
+			Tcryst=0;
+			MZr=0;
 			Tsmax = Tsatbulk;
 			for(row=1; row<(meltsrows[0]-1); row++){
-				
 				// Calculate bulk zircon partition coefficient at present step
 				Kd = 0;
 				for (i=1; i<minerals; i++){
@@ -337,8 +342,19 @@ int main(int argc, char **argv){
 
 				//Calculate melt M and [Zr]
 				M = meltsM(&melts[0][row][SiO2]);
-				Zrf = ic[16]*100/(melts[0][row][mass] + Kd*(100-melts[0][row][mass])); // Zirconium content in melt, assuming bulk Kd=0.1
-				Ts = tzirc(M, Zrf);
+				Zrf = ic[16]*100/(melts[0][row][mass] + Kd*(100-melts[0][row][mass])); // Zirconium content in melt
+				Tf = melts[0][row][T]; // Current temperature
+				Zrsat = tzircZr(M, Tf); // Zirconium required for saturation
+				Ts = tzirc(M, Zrf); // Temperature required for saturation
+
+				// Determine how much zircon is saturated
+				if (Zrf>Zrsat){
+					MZrnow = melts[0][row][mass]/100*(Zrf-Zrsat);
+					if (MZr < MZrnow){
+						Tcryst += (MZrnow - MZr)*melts[0][row][T];
+						MZr = MZrnow;
+					}
+				}
 
 				// Keep track of maximum saturation temperature
 				if (Ts > Tsmax){
@@ -361,29 +377,20 @@ int main(int argc, char **argv){
 					break;
 				}
 			}
+
 			// If zircon never saturated, check what the best (highest) saturation temperature was
-			if (Tsat==0){
+			if (Tsat==0 || MZr==0){
 				Tsat = Tsmax;
-			}
-
-			//Check out the final saturation state
-			M = meltsM(&melts[0][row][SiO2]);
-			Zrf = ic[16]*100/(melts[0][row][mass] + Kd*(100-melts[0][row][mass])); // Assuming Kd=0.1 again
-			Tf = melts[0][row][T];
-			Zrsat = tzircZr(M, Tf);
-
-			// Determine how much zircon is saturated
-			if (Zrf>Zrsat){
-				MZr=melts[0][row][mass]/100*(Zrf-Zrsat);
+				Tcryst = NAN;
 			} else {
-				MZr=0;
+				Tcryst = Tcryst / MZr;
 			}
 
-
+			// Get back bulk M
 			M = meltsM(&melts[0][0][SiO2]);
 			// Print results. Format:
-			// Kv, Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, SiO2, Zrbulk, MZr,
-			printf("%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", ic[17], M, melts[0][0][T], Tsatbulk, Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], melts[0][0][SiO2], ic[16], MZr);
+			// Kv, Mbulk, Tliquidus, Tsatbulk, Tf, Tsat, Zrsat, Zrf, Ff, SiO2, Zrbulk, MZr, Tcryst
+			printf("%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", ic[17], M, melts[0][0][T], Tsatbulk, Tf, Tsat, Zrsat, Zrf, melts[0][row][mass], melts[0][0][SiO2], ic[16], MZr, Tcryst);
 		}
 	}
 	MPI_Finalize();
