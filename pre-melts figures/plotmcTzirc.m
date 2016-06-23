@@ -7,6 +7,22 @@ if ~exist('ign','var')
     load ign
 end
 
+%% All together
+test=mcign.SiO2>40&mcign.SiO2<80;
+figure;
+
+[c,m,e] = bin(mcign.Age(test),mcign.Zr(test),0,4000,length(mcign.SiO2)./length(ign.SiO2),40);
+yyaxis left; errorbar(c,m,e,'.b');
+ylabel('Zr')
+
+[~, M]=tzirc(mcign.CaO(test),mcign.Na2O(test),mcign.K2O(test),mcign.Al2O3(test),mcign.SiO2(test),mcign.TiO2(test),mcign.FeOT(test),mcign.MgO(test),mcign.MnO(test),mcign.P2O5(test), mcign.Zr(test));
+[c,m,e] = bin(mcign.Age(test),M,0,4000,length(mcign.SiO2)./length(ign.SiO2),40);
+yyaxis right; errorbar(c,m,e,'.r');
+ylabel('M')
+
+xlabel('Age (Ma)'); 
+formatfigure;
+
 %% T
 n=~any(isnan([ign.CaO ign.Na2O ign.K2O ign.Al2O3 ign.SiO2 ign.FeOT, ign.MgO, ign.Zr]),2);
 

@@ -3,22 +3,20 @@ cd ~/Desktop/meltstzirc/output/
 
 if ~exist('igncn1','var'); load igncn1; end
 
-name='tzircFull5F6kb';
-
+% name='tzircFull5F6kb';
+name='tzirc5F6kb3H2OFull';
 % system(['grep -e ''^[0-9\.][0-9\.]*\(\t[0-9\.][0-9\.]*\)\{8\}$'' ' name '.log > ' name '.tsv']);
 
 load([name '.tsv']);
-
-
-
+eval(['data=' name ';']);
 
 % Fill variables
-MZr=tzircFull5F6kb(:,8);
-index=tzircFull5F6kb(:,1);
+MZr=data(:,8);
+index=data(:,1);
 include=zeros(size(MZr));
 
 % Zero-out negative masses
-tzircFull5F6kb(MZr<0,8)=0; 
+data(MZr<0,8)=0; 
 MZr(MZr<0)=0;
 
 % Include all non-zero zircon masses and all adjacent zeros
@@ -27,16 +25,12 @@ index=[0;index;0];
 include = MZr(2:end-1)>0 | (MZr(1:end-2)>0 & index(1:end-2)==index(2:end-1)) | (MZr(3:end)>0 & index(3:end)==index(2:end-1));
 
 % Create the new dataset
-fulltzirc.data=tzircFull5F6kb(include,:);
+fulltzirc.data=data(include,:);
 fulltzirc.elements={'Kv';'T';'F';'M';'SiO2';'Zr';'Zrsat';'MZr';'TSat'};
 fulltzirc=elementify(fulltzirc);
 
-figure; plot(fulltzirc.T, fulltzirc.MZr,'.')
-set(gca, 'xdir','reverse')
-xlabel('Temperature'); ylabel('Zircon mass saturated');
-formatfigure
 
-%%
+% Calculate Tscaled
 maxkv=max(fulltzirc.Kv);
 
 fulltzirc.Tscaled=NaN(size(fulltzirc.T));
@@ -56,13 +50,6 @@ for kv=1:maxkv
         fulltzirc.MZrscaled(test)=fulltzirc.MZr(test)./trapz(fulltzirc.Tscaled(test),fulltzirc.MZr(test));
         
     end
-    
-    % Display progress
-    if mod(kv,100)==0
-        bspstr=repmat('\b',1,floor(log10(kv-100))+1);
-        fprintf(bspstr)
-        fprintf('%i',kv)
-    end
 end
 
 figure; plot(fulltzirc.Tscaled, fulltzirc.MZrscaled,'.')
@@ -74,7 +61,7 @@ formatfigure;
 
 maxpaths=400;
 rsi=[43,51,62,74,80];
-minpathlength=5;
+minpathlength=7;
 
 figure;
 for i=1:length(rsi)-1
@@ -106,7 +93,7 @@ end
 
 maxpaths=400;
 rt=[0,100,1000,2500,4000];
-minpathlength=5;
+minpathlength=7;
 
 figure;
 for i=1:length(rt)-1
@@ -137,7 +124,7 @@ end
 %% Calculate average MZr path
 
 maxpaths=70000;
-minpathlength=5;
+minpathlength=7;
 
     
 test=igncn1.SiO2>40&igncn1.SiO2<80;
@@ -159,6 +146,164 @@ dist = dist./trapz(xi,dist);
 figure; plot(xi,dist);
 
 xlabel('"time"'); ylabel('Zircon amount');
+formatfigure;
+
+
+
+%% Calculate average MZr path for different silica ranges
+
+maxpaths=70000;
+minpathlength=14;
+% rsi=[40,50,60,70,80];
+rsi=[45,55,65,75];
+
+l=cell(length(rsi)-1,1);
+figure;
+for i=1:length(rsi)-1
+    test=igncn1.SiO2>rsi(i)&igncn1.SiO2<rsi(i+1)&igncn1.Elevation>-100;
+    
+    path=0;
+    dist = zeros(1,100);
+    xi=linspace(0,1,100);
+    for kv=igncn1.Kv(test)'
+        test=fulltzirc.Kv==kv;
+        if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.Tscaled(test)) == size(unique(fulltzirc.Tscaled(test))))
+            % Plot results for a random subset
+            dist = dist + interp1(fulltzirc.Tscaled(test),fulltzirc.MZrscaled(test),xi);
+            path=path+1;
+            if path>maxpaths
+                break;
+            end
+        end
+    end
+    dist = dist./trapz(xi,dist);
+    hold on; plot(xi,dist);
+    l{i} = [num2str(rsi(i)) ' - ' num2str(rsi(i+1)) ' % SiO2'];
+end
+
+xlabel('"time"'); ylabel('Zircon amount');
+set(gca,'XDir','normal');
+legend(l)
+formatfigure;
+
+%% Calculate average MZr path for different age ranges
+
+maxpaths=70000;
+minpathlength=7;
+rt=[0 541 2500 4000];
+% rt=[0 4000];
+
+
+l=cell(length(rt)-1,1);
+figure;
+for i=1:length(rt)-1
+    test=igncn1.Age>rt(i)&igncn1.Age<rt(i+1)&igncn1.Elevation>-100;
+    
+    path=0;
+    dist = zeros(1,100);
+    xi=linspace(0,1,100);
+    for kv=igncn1.Kv(test)'
+        test=fulltzirc.Kv==kv;
+        if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.Tscaled(test)) == size(unique(fulltzirc.Tscaled(test))))
+            % Plot results for a random subset
+            dist = dist + interp1(fulltzirc.Tscaled(test),fulltzirc.MZrscaled(test),xi);
+            path=path+1;
+            if path>maxpaths
+                break;
+            end
+        end
+    end
+    dist = dist./trapz(xi,dist);
+    hold on; plot(xi,dist);
+    l{i} = [num2str(rt(i)) ' - ' num2str(rt(i+1)) ' Ma'];
+end
+
+xlabel('"time"'); ylabel('Zircon amount');
+set(gca,'XDir','normal');
+legend(l)
+formatfigure;
+
+
+%% Calculate average MZr paths as a function of time/temperature together
+
+
+maxpaths=70000;
+minpathlength=3;
+
+test=igncn1.SiO2>40&igncn1.SiO2<80;
+path=0;
+dist = zeros(1,200);
+xi=linspace(0,1,200);
+for kv=igncn1.Kv(test)'
+    test=fulltzirc.Kv==kv;
+    if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.Tscaled(test)) == size(unique(fulltzirc.Tscaled(test)))) && min(fulltzirc.F(test))<35
+        % Plot results for a random subset
+        dist = dist + interp1(fulltzirc.Tscaled(test),fulltzirc.MZrscaled(test),xi);
+        path=path+1;
+        if path>maxpaths
+            break;
+        end
+    end
+end
+dist = dist./trapz(xi,dist);
+figure; plot(xi,dist);
+
+
+
+rsi=[45,55,65,75];
+
+l=cell(length(rsi)-1,1);
+for i=1:length(rsi)-1
+    test=igncn1.SiO2>rsi(i)&igncn1.SiO2<rsi(i+1)&igncn1.Elevation>-100;
+    
+    path=0;
+    dist = zeros(1,200);
+    xi=linspace(0,1,200);
+    for kv=igncn1.Kv(test)'
+        test=fulltzirc.Kv==kv;
+        if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.Tscaled(test)) == size(unique(fulltzirc.Tscaled(test)))) && min(fulltzirc.F(test))<35
+            % Plot results for a random subset
+            dist = dist + interp1(fulltzirc.Tscaled(test),fulltzirc.MZrscaled(test),xi);
+            path=path+1;
+            if path>maxpaths
+                break;
+            end
+        end
+    end
+    dist = dist./trapz(xi,dist);
+    hold on; plot(xi,dist);
+    l{i} = [num2str(rsi(i)) ' - ' num2str(rsi(i+1)) ' % SiO2'];
+end
+
+
+rt=[0 541 2500 4000];
+
+m=cell(length(rt)-1,1);
+for i=1:length(rt)-1
+    test=igncn1.Age>rt(i)&igncn1.Age<rt(i+1)&igncn1.Elevation>-100;
+    
+    path=0;
+    dist = zeros(1,200);
+    xi=linspace(0,1,200);
+    for kv=igncn1.Kv(test)'
+        test=fulltzirc.Kv==kv;
+        if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.Tscaled(test)) == size(unique(fulltzirc.Tscaled(test)))) && min(fulltzirc.F(test))<35
+            % Plot results for a random subset
+            dist = dist + interp1(fulltzirc.Tscaled(test),fulltzirc.MZrscaled(test),xi);
+            path=path+1;
+            if path>maxpaths
+                break;
+            end
+        end
+    end
+    dist = dist./trapz(xi,dist);
+    hold on; plot(xi,dist);
+    m{i} = [num2str(rt(i)) ' - ' num2str(rt(i+1)) ' Ma'];
+end
+
+xlabel('"time"'); ylabel('Zircon amount');
+set(gca,'XDir','normal');
+legend([{'Average'};l;m])
 formatfigure;
 
 
@@ -201,11 +346,11 @@ minpathlength=5;
     
 test=igncn1.SiO2>40&igncn1.SiO2<80;
 path=0;
-Fpath = zeros(1,100);
-xi=linspace(0,1,100);
+Fpath = zeros(1,200);
+xi=linspace(0,1,200);
 for kv=igncn1.Kv(test)'
     test=fulltzirc.Kv==kv;
-    if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.Tscaled(test)) == size(unique(fulltzirc.Tscaled(test))))
+    if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.Tscaled(test)) == size(unique(fulltzirc.Tscaled(test)))) && min(fulltzirc.F(test))<35
         % Plot results for a random subset
         Fpath = Fpath + interp1(fulltzirc.Tscaled(test),fulltzirc.F(test),xi);
         path=path+1;
@@ -220,3 +365,132 @@ figure; plot(xi,Fpath);
 xlabel('"time"'); ylabel('F');
 formatfigure;
 
+
+
+%% Calculate average MZr path as a function of F
+
+maxpaths=70000;
+minpathlength=5;
+
+    
+path=0;
+dist = zeros(1,100);
+xi=linspace(1,100,100);
+for kv=igncn1.Kv(test)'
+    test=fulltzirc.Kv==kv;
+    if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.F(test)) == size(unique(fulltzirc.F(test))))
+        
+        % Plot results for a random subset
+        dist = nansum([dist; interp1(fulltzirc.F(test),fulltzirc.MZr(test),xi)],1);
+        path=path+1;
+        if path>maxpaths
+            break;
+        end
+    end
+end
+dist = dist./trapz(xi,dist);
+figure; plot(xi,dist);
+
+xlabel('Percent melt'); ylabel('Zircon amount');
+formatfigure;
+
+
+%% Calculate average normalized MZr path as a function of F for different silica ranges
+maxpaths=70000;
+minpathlength=5;
+rsi=[40,50,60,70,80];
+
+l=cell(length(rsi)-1,1);
+figure; 
+for i=1:length(rsi)-1
+    test=igncn1.SiO2>rsi(i)&igncn1.SiO2<rsi(i+1)&igncn1.Elevation>-100;
+    
+    path=0;
+    dist = zeros(1,100);
+    xi=linspace(1,100,100);
+    for kv=igncn1.Kv(test)'
+        test=fulltzirc.Kv==kv;
+        if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.F(test)) == size(unique(fulltzirc.F(test)))) && min(fulltzirc.F(test))<35
+            
+            % Plot results for a random subset
+            dist = nansum([dist; interp1(fulltzirc.F(test),fulltzirc.MZr(test),xi)],1);
+            path=path+1;
+            if path>maxpaths
+                break;
+            end
+        end
+    end
+    dist = dist./trapz(xi,dist);
+    hold on; plot(xi,dist);
+    l{i} = [num2str(rsi(i)) ' - ' num2str(rsi(i+1)) ' % SiO2'];
+end
+
+xlabel('Percent melt'); ylabel('Zircon amount');
+set(gca,'XDir','reverse');
+legend(l)
+formatfigure;
+
+
+%% Calculate average MZr path as a function of F for different silica ranges
+
+maxpaths=70000;
+minpathlength=3;
+rsi=[43,51,62,74];
+% rsi=[45,55,65,75];
+
+l=cell(length(rsi)-1,1);
+figure; set(gca,'ColorOrder',lines(length(rsi)-1));
+for i=1:length(rsi)-1
+    test=igncn1.SiO2>rsi(i)&igncn1.SiO2<rsi(i+1)&igncn1.Elevation>-100&igncn1.Age<2500;
+    
+    path=0;
+    dist = zeros(1,100);
+    xi=linspace(1,100,100);
+    for kv=igncn1.Kv(test)'
+        test=fulltzirc.Kv==kv;
+        if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.F(test)) == size(unique(fulltzirc.F(test)))) && min(fulltzirc.F(test))<35
+            F=fulltzirc.F(test);
+            MZrn=fulltzirc.MZr(test)./[100; F(1:end-1)./F(2:end)]*2.009;
+            % Plot results for a random subset
+            dist = nansum([dist; interp1(F,MZrn,xi)],1);
+            path=path+1;
+            if path>maxpaths
+                break;
+            end
+        end
+    end
+    dist = dist./path;
+%     dist = dist./trapz(xi,dist);
+    hold on; plot(xi,dist);
+    l{i} = [num2str(rsi(i)) ' - ' num2str(rsi(i+1)) ' % SiO2'];
+end
+
+for i=1:length(rsi)-1
+    test=igncn1.SiO2>rsi(i)&igncn1.SiO2<rsi(i+1)&igncn1.Elevation>-100&igncn1.Age>2500;
+    
+    path=0;
+    dist = zeros(1,100);
+    xi=linspace(1,100,100);
+    for kv=igncn1.Kv(test)'
+        test=fulltzirc.Kv==kv;
+        if sum(test)>minpathlength && rand < (10 * maxpaths / sum(test)) && all(size(fulltzirc.F(test)) == size(unique(fulltzirc.F(test)))) && min(fulltzirc.F(test))<35
+            F=fulltzirc.F(test);
+            MZrn=fulltzirc.MZr(test)./[100; F(1:end-1)./F(2:end)]*2.009;
+            % Plot results for a random subset
+            dist = nansum([dist; interp1(F,MZrn,xi)],1);
+            path=path+1;
+            if path>maxpaths
+                break;
+            end
+        end
+    end
+    dist = dist./path;
+%     dist = dist./trapz(xi,dist);
+    hold on; plot(xi,dist);
+    l{i} = [num2str(rsi(i)) ' - ' num2str(rsi(i+1)) ' % SiO2'];
+end
+
+xlabel('Percent melt'); ylabel('Zircon saturated (ug/g/%)');
+set(gca,'XDir','reverse');
+legend(l)
+formatfigure;

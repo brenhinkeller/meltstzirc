@@ -1,43 +1,4 @@
-%% Import tzirc data
-cd ~/Desktop/meltstzirc/output/
- 
-if ~exist('igncn1','var'); load igncn1; end
 
-name='tzirc5F12kbH2O01';
-
-system(['grep -e ''^[0-9\.][0-9\.]*\(\t[0-9\.][0-9\.]*\)\{11\}$'' ' name '.log > ' name '.tsv']);
-
-load([name '.tsv']);
-
-% Make struct from input file 
-variables={'Kv','Mbulk','Tliq','Tsatb','Tf','Tsat','Zrsat','Zrf','Ff','SiO2','Zr','MZr'};
-tzirclog=struct;
-for i=1:length(variables)
-   eval(['tzirclog.(variables{i})=' name '(:,i);'])
-end
-
-% Create new struct fields for imported data
-variables={'Mbulk','Tliq','Tsat','Tsatb','Zrsat','Zrf','Ff','MZr'};
-for var=variables;
-    igncn1.(var{:})=NaN(size(igncn1.Kv));
-end
-for var=variables;
-    igncn1.err.(var{:})=0.02;
-end
-
-% Parse melts struct row by row, inserting each value in the right place
-for i=1:length(igncn1.Kv)
-    j=find(tzirclog.Kv==igncn1.Kv(i));
-    if length(j)==1
-        for var=variables;
-            igncn1.(var{:})(i)=tzirclog.(var{:})(j);
-        end
-    elseif length(j)>1
-        printf('Warning: Duplicate sample number')
-    end
-end
-    
-    
     
 %% Zircon saturation systematics cross-plots
 t=igncn1.MZr>0;
