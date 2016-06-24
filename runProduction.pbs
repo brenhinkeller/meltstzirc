@@ -4,4 +4,4 @@
 #PBS -M cbkeller@princeton.edu
 
 module load openmpi
-mpiexec ./meltsTzircParallelFull ignmajors.csv 1>tzirc5F6kbFull.log 2>./error.log
+mpiexec ./meltsTzircParallelFull ignmajors.csv 1>tzirc5F6kb3H2OFull.log 2>./error.log

@@ -212,7 +212,7 @@ int main(int argc, char **argv){
 			system(cmd_string);
 
 //			//Set water
-//			ic[15]=0.1;
+			ic[15]=3.0;
 //			//Set CO2
 //			ic[14]=0.1;
 			
