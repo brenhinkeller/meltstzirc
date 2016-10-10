@@ -158,7 +158,7 @@ int main(int argc, char **argv){
 		const int deltaP=0;
 
 		// Stop simulations at a given percent melt
-		const double minPercentMelt=5;
+		const double minPercentMelt=0.1;
 
 		// Variables that control size and location of the simulation
 		/***********************************************************/	
@@ -349,14 +349,16 @@ int main(int argc, char **argv){
 					MZr=0;
 				}
 				MZrIncrement=MZr-MZrLast;
-				MZrLast=MZr;
-
-				// Stop when we get to maximum SiO2
-				if (row>0){
-					if (melts[0][row-1][SiO2]>(melts[0][row][SiO2])+0.01){
-						break;
-					}
+				if (MZr>MZrLast){
+					MZrLast=MZr;
 				}
+
+//				// Stop when we get to maximum SiO2
+//				if (row>0){
+//					if (melts[0][row-1][SiO2]>(melts[0][row][SiO2])+0.01){
+//						break;
+//					}
+//				}
 
 				// Or when remaining melt falls below minimum percent
 				if (melts[0][row][mass]<minPercentMelt){
