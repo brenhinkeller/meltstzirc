@@ -3,7 +3,7 @@ cd ~/Desktop/meltstzirc/output/
  
 if ~exist('igncn1','var'); load igncn1; end
 
-suffix = '5F12kb05H2O';
+suffix = '1F6kb3H2O';
 name=['tzirc' suffix];
 n = suffix;
 
@@ -82,7 +82,7 @@ toc
 %% Run Weighted bootstrap resampling
 
 % Number of rows to simulate
-samplerows=1000000;
+samplerows=10000000;
 
 tic;
 fprintf('Assigning output variables: ');
@@ -118,7 +118,7 @@ mcigncn1.elements=['Age';'Age_Uncert';simitems;];
 toc
 mcigncn1=elementify(mcigncn1);
 
-save(['igncn1-' suffix], 'igncn1')
-save(['mcigncn1-' suffix], 'mcigncn1')
+save(['igncn1-' suffix], 'igncn1','-v7.3')
+save(['mcigncn1-' suffix], 'mcigncn1','-v7.3')
 
 
