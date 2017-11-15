@@ -5,5 +5,5 @@ The code is written mostly in C, using MPI to distribute whole-rock compositions
 
 Two versions of the main parallel code are provided: [meltsTzircParallelFull.c](meltsTzircParallelFull.c) which outputs zircon saturation state for each temperature step of the MELTS simulation, and [meltsTzircParallel.c](meltsTzircParallel.c) which outputs only the total mass saturated. 
 
-Mineral/melt parition coefficients for Zr are obtained from the GERM database, as stored in [GERM.h](GERM.h), while a range of functions for interacting with alphaMELTS are provided in [runmelts.h](runmelts.h)
+Mineral/melt parition coefficients for zirconium are obtained from the [GERM Kd database](https://earthref.org/KDD/), as stored in [GERM.h](GERM.h), while a range of functions for interacting with alphaMELTS are provided in [runmelts.h](runmelts.h)
 
