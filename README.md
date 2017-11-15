@@ -1,5 +1,5 @@
 # meltstzirc
-Source code for the alphaMELTS zircon saturation calculations used in the paper ["Temporal variation in relative zircon abundance throughout Earth history"](https://doi.org/10.7185/geochemlet.1721) by Keller, Boehnke, and Schoene in Geochemical Perspectives Letters.
+Source code for the alphaMELTS zircon saturation calculations used in the paper ["Temporal variation in relative zircon abundance throughout Earth history"](https://doi.org/10.7185/geochemlet.1721) by Keller, Boehnke, and Schoene (2017) in Geochemical Perspectives Letters.
 
 The code is written mostly in C, using MPI to distribute whole-rock compositions from an input file ([ignmajors.csv](ignmajors.csv)) to cores on different nodes, each of which then spins up an alphaMELTS simulation using a system() call, reads the output, and conducts Zr partitioning calculations using the mineral abundances reported by MELTS. 
 
